@@ -97,6 +97,11 @@ class ContenidoBloque(BaseModel):
     items = models.JSONField(null=True, blank=True)
     filas = models.JSONField(null=True, blank=True)
     video_url = models.CharField(max_length=500, blank=True)
+    video_archivo = models.FileField(
+        upload_to='capacitacion/videos/',
+        blank=True,
+        null=True,
+    )
 
     class Meta:
         ordering = ['tema', 'orden']

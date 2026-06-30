@@ -1,4 +1,7 @@
 venv/
 .env.local
-
 media/
+
+__pycache__/
+*.pyc
+*.pyo

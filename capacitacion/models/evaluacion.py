@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 from common.models import BaseModel
 
@@ -30,6 +31,14 @@ class Evaluacion(BaseModel):
         verbose_name = 'Evaluación'
         verbose_name_plural = 'Evaluaciones'
         default_permissions = ()
+
+    def clean(self):
+        ambos = self.curso_id and self.modulo_id
+        ninguno = not self.curso_id and not self.modulo_id
+        if ambos:
+            raise ValidationError('Una evaluación no puede pertenecer a un curso y a un módulo al mismo tiempo.')
+        if ninguno:
+            raise ValidationError('Una evaluación debe pertenecer a un curso o a un módulo.')
 
     def __str__(self):
         return self.titulo

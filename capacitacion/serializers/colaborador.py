@@ -189,7 +189,7 @@ class ContenidoBloqueColaboradorSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ContenidoBloque
-        fields = ('id', 'tema', 'tipo_nombre', 'orden', 'texto', 'variante', 'items', 'filas', 'video_url')
+        fields = ('id', 'tema', 'tipo_nombre', 'orden', 'texto', 'variante', 'items', 'filas', 'video_url', 'video_archivo')
 
 
 class OpcionColaboradorSerializer(serializers.ModelSerializer):

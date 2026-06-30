@@ -14,6 +14,19 @@ class EvaluacionSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('creado_at', 'actualizado_at')
 
+    def validate(self, attrs):
+        curso = attrs.get('curso', getattr(self.instance, 'curso', None))
+        modulo = attrs.get('modulo', getattr(self.instance, 'modulo', None))
+        if curso and modulo:
+            raise serializers.ValidationError(
+                'Una evaluación no puede pertenecer a un curso y a un módulo al mismo tiempo.'
+            )
+        if not curso and not modulo:
+            raise serializers.ValidationError(
+                'Una evaluación debe pertenecer a un curso o a un módulo.'
+            )
+        return attrs
+
 
 class PreguntaSerializer(serializers.ModelSerializer):
     class Meta:

@@ -46,7 +46,7 @@ class ContenidoBloqueSerializer(serializers.ModelSerializer):
         model = ContenidoBloque
         fields = (
             'id', 'tema', 'tipo', 'tipo_nombre', 'orden',
-            'texto', 'variante', 'items', 'filas', 'video_url',
+            'texto', 'variante', 'items', 'filas', 'video_url', 'video_archivo',
             'activo', 'creado_at', 'actualizado_at',
         )
         read_only_fields = ('creado_at', 'actualizado_at')
