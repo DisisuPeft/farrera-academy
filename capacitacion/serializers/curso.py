@@ -49,4 +49,4 @@ class ContenidoBloqueSerializer(serializers.ModelSerializer):
             'texto', 'variante', 'items', 'filas', 'video_url', 'video_archivo',
             'activo', 'creado_at', 'actualizado_at',
         )
-        read_only_fields = ('creado_at', 'actualizado_at')
+        read_only_fields = ('activo', 'creado_at', 'actualizado_at')

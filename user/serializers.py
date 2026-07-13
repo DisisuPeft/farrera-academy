@@ -10,11 +10,11 @@ from rest_framework.validators import ValidationError
 from django.shortcuts import get_object_or_404
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-    username_field = 'email'
+    username_field = 'num_colab'
 
     def validate(self, attrs):
         credentials = {
-            'email': attrs.get('email'),
+            'num_colab': attrs.get('num_colab'),
             'password': attrs.get('password')
         }
         user = authenticate(**credentials)

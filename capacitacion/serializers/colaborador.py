@@ -186,10 +186,19 @@ class TemaColaboradorSerializer(serializers.ModelSerializer):
 
 class ContenidoBloqueColaboradorSerializer(serializers.ModelSerializer):
     tipo_nombre = serializers.CharField(source='tipo.nombre', read_only=True)
+    video_stream_url = serializers.SerializerMethodField()
 
     class Meta:
         model = ContenidoBloque
-        fields = ('id', 'tema', 'tipo_nombre', 'orden', 'texto', 'variante', 'items', 'filas', 'video_url', 'video_archivo')
+        fields = ('id', 'tema', 'tipo_nombre', 'orden', 'texto', 'variante', 'items', 'filas', 'video_url', 'video_stream_url')
+
+    def get_video_stream_url(self, obj):
+        if not obj.video_archivo:
+            return None
+        request = self.context.get('request')
+        if request is None:
+            return None
+        return request.build_absolute_uri(f'/api/capacitacion/stream/{obj.pk}/')
 
 
 class OpcionColaboradorSerializer(serializers.ModelSerializer):

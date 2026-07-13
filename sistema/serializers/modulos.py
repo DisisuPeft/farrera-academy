@@ -35,7 +35,7 @@ class PestaniaAdminSerializer(serializers.ModelSerializer):
 class ModulosSerializer(serializers.ModelSerializer):
     class Meta:
         model = Modulo
-        fields = ('uuid', 'href', 'bgColor', 'textColor', 'icon', 'icon_path', 'nombre', 'orden')
+        fields = ('uuid', 'href', 'bgColor', 'textColor', 'icon', 'icon_path', 'nombre', 'orden', 'slug', 'desc')
 
 
 # Serializer completo para administración, con pestañas anidadas
@@ -45,7 +45,7 @@ class ModuloAdminSerializer(serializers.ModelSerializer):
     class Meta:
         model = Modulo
         fields = (
-            'id', 'uuid', 'nombre',
+            'id', 'uuid', 'nombre', 'desc',
             'icon_path', 'icon', 'bgColor', 'textColor',
-            'href', 'orden', 'pestanias', 'status',
+            'href', 'orden', 'pestanias', 'status', 'slug'
         )

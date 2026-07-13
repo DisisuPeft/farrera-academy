@@ -12,6 +12,7 @@ from .views import (
     InscripcionViewSet,
     ProgresoTemaViewSet,
     ResultadoEvaluacionViewSet,
+    VideoStreamView,
 )
 from .views_colaborador import (
     MisInscripcionesViewSet,
@@ -59,4 +60,5 @@ urlpatterns = [
     path('capacitacion/', include(admin_router.urls)),
     path('capacitacion/', include(mis_router.urls)),
     path('capacitacion/ver/', include(ver_router.urls)),
+    path('capacitacion/stream/<int:bloque_id>/', VideoStreamView.as_view(), name='video-stream'),
 ]

@@ -1,6 +1,10 @@
+from django.conf import settings
+from django.http import HttpResponse, FileResponse
+from django.shortcuts import get_object_or_404
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework import status
 
 from user.authenticate import CustomJWTAuthentication
@@ -165,3 +169,33 @@ class ResultadoEvaluacionViewSet(_BaseAdminViewSet):
         if colaborador:
             qs = qs.filter(colaborador_id=colaborador)
         return qs
+
+
+# ---------------------------------------------------------------------------
+# Stream de video
+# ---------------------------------------------------------------------------
+
+class VideoStreamView(APIView):
+    """
+    Valida el JWT y sirve el video via X-Accel-Redirect (nginx en producción).
+    En local (DEBUG=True) redirige directamente a la URL del archivo.
+    """
+    authentication_classes = [CustomJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, bloque_id):
+        bloque = get_object_or_404(ContenidoBloque, pk=bloque_id, activo=True)
+
+        if not bloque.video_archivo:
+            return Response(
+                {'detail': 'Este bloque no tiene video.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if settings.DEBUG:
+            return FileResponse(bloque.video_archivo.open('rb'), content_type='video/mp4')
+
+        response = HttpResponse(content_type='video/mp4')
+        response['X-Accel-Redirect'] = f'/media/{bloque.video_archivo.name}'
+        response['Content-Disposition'] = 'inline'
+        return response

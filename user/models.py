@@ -25,7 +25,7 @@ class UserCustomize(AbstractUser, Base):
     fecha_alta = models.DateField()
     dependencia = models.ForeignKey("sistema.Dependencia", on_delete=models.PROTECT, related_name="usuarios")
     
-    USERNAME_FIELD = 'email'
+    USERNAME_FIELD = 'num_colab'
     REQUIRED_FIELDS = []
 
     objects = CustomUserManager()

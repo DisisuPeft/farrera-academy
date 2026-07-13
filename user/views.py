@@ -23,6 +23,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 
     def post(self, request, *args, **kwargs):
         # print("Datos de la solicitud:", request.data)
+        # print(request.data)
         try:
             # print("Datos de la solicitud:", request.data)  # Registra los datos de la solicitud
             response = super().post(request, *args, **kwargs)
@@ -64,11 +65,11 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             return response
             # return Response({"message": "SignIn exitoso."})
         except Exception as e:
-            print(f"Excepción capturada: {e}")
+            # loguear e internamente
+            import logging
+            logging.getLogger(__name__).exception("Error en login")
             return Response(
-                {
-                    "detail": f"{e}"
-                },
+                {"detail": "Ocurrio un error al intentar iniciar sesion, valida tus credenciales"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 

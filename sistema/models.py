@@ -58,6 +58,7 @@ class Dependencia(Base):
 
 class Modulo(Base):
     nombre = models.CharField(max_length=50)
+    desc = models.CharField(max_length=50, null=True, blank=True)
     icon_path = models.CharField(max_length=50, null=True, blank=True)
     icon = models.CharField(max_length=50, null=True, blank=True)
     bgColor = models.CharField(max_length=20, null=True, blank=True)
@@ -65,6 +66,7 @@ class Modulo(Base):
     href = models.CharField(max_length=50, null=True, blank=True)
     orden = models.IntegerField(blank=True, null=True)
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    slug = models.SlugField(max_length=50, null=True, blank=True)
 
     class Meta:
         ordering = ['orden']
