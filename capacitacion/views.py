@@ -54,6 +54,19 @@ class ModuloViewSet(_BaseAdminViewSet):
             qs = qs.filter(curso_id=curso)
         return qs
 
+    def destroy(self, _request, *args, **kwargs):
+        modulo = self.get_object()
+        curso_id = modulo.curso_id
+        orden_borrado = modulo.orden
+        modulo.delete()
+        posteriores = Modulo.objects.filter(
+            curso_id=curso_id, orden__gt=orden_borrado,
+        ).order_by('orden')
+        for m in posteriores:
+            m.orden -= 1
+            m.save(update_fields=['orden'])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class TemaViewSet(_BaseAdminViewSet):
     queryset = Tema.objects.select_related('modulo', 'tipo').all()
@@ -66,6 +79,20 @@ class TemaViewSet(_BaseAdminViewSet):
             qs = qs.filter(modulo_id=modulo)
         return qs
 
+    def destroy(self, _request, *args, **kwargs):
+        tema = self.get_object()
+        modulo_id = tema.modulo_id
+        orden_borrado = tema.orden
+        tema.delete()
+        # Cerrar el gap: orden ascendente para no violar unique_together('modulo','orden')
+        posteriores = Tema.objects.filter(
+            modulo_id=modulo_id, orden__gt=orden_borrado,
+        ).order_by('orden')
+        for t in posteriores:
+            t.orden -= 1
+            t.save(update_fields=['orden'])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class ContenidoBloqueViewSet(_BaseAdminViewSet):
     queryset = ContenidoBloque.objects.select_related('tema', 'tipo').all()
@@ -77,6 +104,19 @@ class ContenidoBloqueViewSet(_BaseAdminViewSet):
         if tema:
             qs = qs.filter(tema_id=tema)
         return qs
+
+    def destroy(self, _request, *args, **kwargs):
+        bloque = self.get_object()
+        tema_id = bloque.tema_id
+        orden_borrado = bloque.orden
+        bloque.delete()
+        posteriores = ContenidoBloque.objects.filter(
+            tema_id=tema_id, orden__gt=orden_borrado,
+        ).order_by('orden')
+        for b in posteriores:
+            b.orden -= 1
+            b.save(update_fields=['orden'])
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 # ---------------------------------------------------------------------------
