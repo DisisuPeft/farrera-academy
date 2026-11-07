@@ -51,7 +51,7 @@ Se evaluó no introducir una entidad de periodo/impartición y en su lugar solo 
 ## Users & context
 
 - **Colaborador**: un empleado de Grupo Farrera inscrito en formación. Puede necesitar recursar un curso (recapacitación, recertificación) sin perder la evidencia de su participación anterior.
-- **Administrador**: gestiona cursos, crea/cierra periodos de impartición, puede corregir manualmente datos de inscripción cuando sea necesario — pero nunca puede, directamente ni a través de un colaborador, sobrescribir a mano la finalización o el nivel acreditado de una competencia.
+- **Administrador**: gestiona cursos, crea/cierra periodos de impartición, puede corregir manualmente datos de inscripción cuando sea necesario. El colaborador nunca puede fijar directamente la finalización o el nivel acreditado de su propia inscripción. Si el administrador puede forzar una finalización excepcional por una vía distinta al cumplimiento normal de requisitos es, deliberadamente, una pregunta abierta — ver "Points to clarify".
 - **El propio backend**: es la autoridad que decide cuándo una inscripción se considera finalizada y cuándo corresponde acreditar una competencia — ya no el colaborador reportándolo él mismo.
 
 ## What the user can do
