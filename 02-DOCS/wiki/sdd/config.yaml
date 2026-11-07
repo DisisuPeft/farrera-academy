@@ -1,0 +1,58 @@
+version: 1
+project:
+  root: .
+  stacks: [python, django, drf]
+  package_managers: [pip]
+  monorepo: false
+  signals: [requirements.txt, manage.py]
+sdd:
+  artifact_store: 02-DOCS/wiki/sdd
+  execution_mode: interactive
+  registry_path: .rsc/skill-registry.json
+  review_budget:
+    line_budget: 400
+    file_budget: 12
+  delivery_strategy:
+    default: ask-on-risk
+testing:
+  strict_tdd: true
+  strict_tdd_scope_note: "Constitution principle 7 scopes strict TDD to the periodos/inscripción/acreditación feature line specifically; other incremental work in this repo may keep the existing tests-after pattern. implement should check which applies per task."
+  runners: [django-test]
+  commands:
+    apply: ["pip install -r requirements.txt", "python manage.py migrate"]
+    verify: ["python manage.py test"]
+  lint:
+    tool: ruff
+    installed: false
+    note: "Constitution principle 5 mandates ruff format + ruff check on changed files; ruff is not yet installed in this environment. Install before the first implement task touches it, or flag as a gap in that task's evidence."
+phase_rules:
+  proposal: optional-on-ambiguity
+  specify: requires intent or proposal
+  plan: requires spec
+  tasks: requires plan and spec
+  analyze: requires spec plan tasks
+  implement: requires analyze pass, strict_tdd when testing.strict_tdd is true
+  verify: requires spec tasks evidence
+  archive: requires verify record and review/ship outcome
+models:
+  enabled: false
+  provider: anthropic
+  tiers:
+    heavy: claude-opus-4-8
+    balanced: claude-sonnet-4-6
+    light: claude-haiku-4-5-20251001
+  phases:
+    constitution: heavy
+    specify: balanced
+    clarify: balanced
+    plan: heavy
+    tasks: balanced
+    analyze: heavy
+    implement: balanced
+    verify: balanced
+    review: heavy
+    ship: light
+    debug: heavy
+    worktrees: light
+    sdd-init: light
+  overrides: {}
