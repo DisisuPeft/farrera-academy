@@ -38,3 +38,15 @@ Append-only. No se reescriben entradas pasadas; correcciones se agregan como ent
 - **hallazgo real durante la corrección (no previsto por el revisor):** aplicar la verificación justo después de capturar `IntegrityError`, sin aislar el `create()` en su propio `transaction.atomic()` anidado (savepoint), rompió con `TransactionManagementError` al ejecutar la consulta de verificación — reproducido corriendo la suite real contra MySQL, no inferido. Corregido envolviendo el `create()` en un `atomic()` anidado; ver `decisions.md` para el detalle y por qué aplica a los servicios futuros (`EvidenciaService`, `FinalizacionService`)
 - controls: tests ✅ (71/71 del proyecto completo, sin regresiones) · build ✅ (`system check` sin issues) · security: sin hallazgos del refutador · traceability ✅ (AC1, AC2, AC17)
 - decision: should-fix corregido y registrado en `decisions.md` (incluye el hallazgo operativo de la corrección) — sin bloqueos
+
+## T005/T006 — 2026-11-10
+- status: complete
+- red: no hubo rojo real — `ConcurrenciaTest` (dos hilos reales, `TransactionTestCase`) pasó verde desde el primer intento contra la implementación ya existente de T004 (`select_for_update` + manejo de `IntegrityError` ya cubrían la invariante)
+- verificación de que la prueba no era vacía: mutante 1 (quitar `select_for_update()`) — sigue verde 8/8 (el índice único de MySQL ya serializa el `INSERT`); confirma que `select_for_update` protege una invariante distinta (lectura consistente de `periodo.estado`), no esta
+- green: T006 fue un no-op de código (la implementación de T004 ya satisface la invariante de concurrencia probada por T005)
+- files: `capacitacion/tests/test_inscripcion_service.py`
+- risk: tier 1 (confirmado con `npx @ericrisco/rsc risk`) — 1 revisor fresh-context (`refuter-tests`)
+- review: 1 should-fix confirmado por el revisor con un segundo mutante (quitar el `try/except IntegrityError` completo) que el propio builder no había probado — un hilo que lanza una excepción no capturada no agrega resultado a la lista compartida, reduciendo la muestra de 2 a 1 y dejando pasar `len(exitosos)==1` por la razón equivocada
+- triangulación (fix): se agregó `self.assertEqual(len(resultados), 2, ...)` antes de contar los exitosos; verificado empíricamente que con esta aserción el mutante 2 ahora falla 3/3 corridas y la implementación real sigue pasando
+- controls: tests ✅ (72/72 del proyecto completo, sin regresiones) · build ✅ · security: sin hallazgos del refutador · traceability ✅ (AC11)
+- decision: should-fix corregido y verificado con mutación real; registrado en `decisions.md` — sin bloqueos
