@@ -26,3 +26,15 @@ Append-only. No se reescriben entradas pasadas; correcciones se agregan como ent
 - review: correctness 1 should-fix (comentario sobreafirmaba una invariante que T004 todavía no construye — corregido a describir el estado real) → fixed; security 0 blocker/should-fix, pero señaló que `MisInscripcionesViewSet`/`InscripcionViewSet` van a devolver 500 hasta T032 (ventana transicional ya prevista por la secuenciación del plan, no un hallazgo de seguridad — aceptada, no se corrige fuera de orden); tests 1 should-fix confirmado y corregido (ver arriba)
 - controls: tests ✅ (49/49 del suite completo de `capacitacion`, sin regresiones) · build ✅ (migración aplica limpio) · security: sin bloqueos · traceability ✅ (AC2, AC3, AC4, AC11)
 - decision: la rotura transicional de los endpoints de inscripción hasta T032 queda aceptada y registrada aquí, no en la decision queue (no es `blocking`: no detiene tareas independientes ni requiere aprobación humana aparte — ya estaba prevista en la secuenciación del plan)
+
+## T003/T004 — 2026-11-10
+- status: complete
+- red: `python manage.py test capacitacion.tests.test_inscripcion_service` falló con `ModuleNotFoundError: No module named 'capacitacion.services'` (razón correcta: el servicio no existía)
+- green: creado `capacitacion/services/inscripcion_service.py` con `InscripcionService.crear(colaborador, periodo)`; 2 pruebas iniciales en verde
+- triangulación: se agregó `test_curso_queda_copiado_del_periodo` (confirma `curso` auto-copiado de `periodo.curso` y `completado_at is None`)
+- files: `capacitacion/services/__init__.py`, `capacitacion/services/inscripcion_service.py`, `capacitacion/tests/test_inscripcion_service.py`
+- risk: tier 1 (confirmado con `npx @ericrisco/rsc risk`) — 1 revisor fresh-context (`refuter-correctness`)
+- review: 1 should-fix confirmado — `except IntegrityError` sin acotar podía enmascarar una violación de FK real como `InscripcionDuplicada`; corregido re-verificando que exista la fila (colaborador, periodo) antes de devolver ese resultado, re-lanzando en cualquier otro caso
+- **hallazgo real durante la corrección (no previsto por el revisor):** aplicar la verificación justo después de capturar `IntegrityError`, sin aislar el `create()` en su propio `transaction.atomic()` anidado (savepoint), rompió con `TransactionManagementError` al ejecutar la consulta de verificación — reproducido corriendo la suite real contra MySQL, no inferido. Corregido envolviendo el `create()` en un `atomic()` anidado; ver `decisions.md` para el detalle y por qué aplica a los servicios futuros (`EvidenciaService`, `FinalizacionService`)
+- controls: tests ✅ (71/71 del proyecto completo, sin regresiones) · build ✅ (`system check` sin issues) · security: sin hallazgos del refutador · traceability ✅ (AC1, AC2, AC17)
+- decision: should-fix corregido y registrado en `decisions.md` (incluye el hallazgo operativo de la corrección) — sin bloqueos
