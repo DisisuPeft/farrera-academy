@@ -81,3 +81,11 @@ Plan updated in place (§0, §2, §4, §6, §7). Next: `tasks`.
 Two genuine disjoint-file parallel-safe pairs found during slicing (T011 vs. T009/T010 — different model file; T037/T038 vs. the competencias/views.py group T033-036 — different file); everything else left sequential by default per the "when in doubt, leave blank" rule, since several plan-stage "parallelizable" guesses turned out to share a file once the actual files were identified (ProgresoTema and ResultadoEvaluacion both live in `capacitacion/models/progreso.py`, not separate files as the plan's §6 sequencing had loosely implied).
 
 Next: `analyze` — cross-check constitution ↔ spec ↔ plan ↔ tasks before `implement`.
+
+## 2026-11-10 — Analyze: first pass BLOCKED (1 HIGH, 3 MEDIUM), fixes applied, re-run PASS
+
+First pass found 1 HIGH (the 3 behavior-fix tasks T033-T038 changed real observable API behavior, decided explicitly with the user, but never entered the spec — only `decisions.md` and the plan) and 3 MEDIUM (AC10's "calificación final" unnamed field; T027/T032 missing Interfaces blocks for context-isolated implementers; `competencias/tests.py` is a single module today but T024/T033 done-checks assumed a `competencias/tests/` package).
+
+Fixes applied in place: spec gained 3 new acceptance criteria (AC18-AC20) plus a `## Clarifications` entry citing this log as their origin; plan §4 now names `ResultadoEvaluacion.correctas`/`.total` as the AC10 field; T027 and T032 gained Interfaces blocks; new task T041 (convert `competencias/tests.py` to a package) inserted with T024/T033 updated to depend on it. Spec gate: PASS (20 ACs now). Re-ran `analyze`: GATE: PASS, 20/20 criteria covered both ways, zero findings.
+
+Next: `implement`.

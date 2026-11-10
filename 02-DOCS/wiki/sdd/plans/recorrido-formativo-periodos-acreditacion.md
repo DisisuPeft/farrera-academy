@@ -101,6 +101,7 @@ AcreditacionService.acreditar(inscripcion: Inscripcion) -> None
 - **`ResultadoEvaluacion`** (modificado) — gana `inscripcion` (FK, PROTECT, NOT NULL); pierde `colaborador` directo; sin `unique_together` nueva (se mantienen múltiples intentos por inscripción, comportamiento ya existente e intencional).
 - **`ContenidoBloqueRespuesta`** (modificado) — gana `inscripcion` (FK, PROTECT, NOT NULL); pierde `colaborador` directo; sin `unique_together` nueva (mismo motivo).
 - **`CompetenciaCurso` / `CompetenciaColaborador` / `NivelCompetencia`** — sin cambios de esquema; solo cambia quién las invoca (`AcreditacionService` en vez del signal).
+- **Aclaración (resuelve `analyze` hallazgo MEDIUM #2):** "la calificación final" de spec AC10 se refiere a `ResultadoEvaluacion.correctas`/`.total` — ya son campos server-computed por el código existente (no escribibles directamente por el colaborador), confirmado en sesiones previas de este proyecto. No se requiere ningún campo nuevo ni trabajo adicional de modelo para esta cláusula; T028 debe probar estos dos campos por su nombre, no solo `completado_at` y `nivel`.
 
 **Flujo principal** (spec: finalización automática con evaluaciones)
 
@@ -210,7 +211,8 @@ Ninguna decisión arquitectónica queda genuinamente abierta para este plan — 
 | T021 |  | Ajustar hasta que T020 quede verde | T020 verde | T019, T020 | AC13 | 1 |
 | T022 |  | Escribir test que falla: `reevaluar()` sobre inscripción ya finalizada es no-op observable | test falla | T019 | AC6 | 1 |
 | T023 |  | Ajustar idempotencia hasta que T022 quede verde | T022 verde | T022 | AC6 | 1 |
-| T024 |  | **Test de regresión — reproduce el hallazgo de la auditoría:** completar con nivel 2, subir `CompetenciaCurso` a nivel 3, volver a guardar la inscripción histórica → el nivel debe permanecer en 2 | `python manage.py test competencias.tests.test_acreditacion_regression` falla contra el código actual (el bug existe hoy) | T019 | AC7 | 2 |
+| T041 |  | Convertir `competencias/tests.py` en el paquete `competencias/tests/` (migrar las pruebas existentes a `competencias/tests/test_legacy.py` o equivalente, sin perder cobertura), siguiendo el patrón ya establecido en `capacitacion/tests/` | `python manage.py test competencias` sigue verde tras la migración; `competencias/tests.py` ya no existe, `competencias/tests/__init__.py` sí | — | constitution §3.13 (resuelve `analyze` hallazgo MEDIUM #4) | 1 |
+| T024 |  | **Test de regresión — reproduce el hallazgo de la auditoría:** completar con nivel 2, subir `CompetenciaCurso` a nivel 3, volver a guardar la inscripción histórica → el nivel debe permanecer en 2 | `python manage.py test competencias.tests.test_acreditacion_regression` falla contra el código actual (el bug existe hoy) | T019, T041 | AC7 | 2 |
 | T025 |  | Extraer `AcreditacionService` desde `competencias/signals.py`, eliminar el receptor `post_save`, conectar desde `FinalizacionService` | T024 verde; confirmar que guardar una `Inscripcion` directamente ya no dispara acreditación | T024, T019 | AC5, AC7 | 2 |
 | T026 |  | Escribir test que falla: finalización excepcional forzada por un administrador produce el mismo resultado observable que una automática | test falla (no existe `forzar`) | T025 | AC15 | 1 |
 | T027 |  | Implementar `FinalizacionService.forzar` + endpoint administrativo | T026 verde | T026 | AC15 | 1 |
@@ -219,12 +221,12 @@ Ninguna decisión arquitectónica queda genuinamente abierta para este plan — 
 | T030 |  | Escribir test que falla: cerrar un periodo no bloquea progreso/finalización de inscripciones ya existentes en él, solo nuevas inscripciones | test falla | T019, T004 | AC16, AC17 | 1 |
 | T031 |  | Ajustar hasta que T030 quede verde | T030 verde | T030 | AC16, AC17 | 1 |
 | T032 |  | Reconectar `capacitacion/views.py` y `views_colaborador.py` a `InscripcionService`/`EvidenciaService` en vez de creación directa de modelos | suite completa de `capacitacion` verde; endpoints existentes responden igual salvo lo ya cambiado por diseño | T004, T013, T027 | AC1, AC2, AC8, AC9, AC10 | 1 |
-| T033 |  | Escribir test que falla: `MiPerfilCompetenciasView` muestra la inscripción más reciente por curso cuando hay dos | `python manage.py test competencias.tests.test_mi_perfil_competencias` falla (hoy colapsa por orden de iteración) | T002, T004 | plan §4 (remediación, deriva de AC4) | 1 |
-| T034 |  | Corregir `MiPerfilCompetenciasView` (competencias/views.py:177) hasta que T033 quede verde | T033 verde | T033 | ídem | 1 |
-| T035 |  | Escribir test que falla: `MiInscripcionRutaPerfil` auto-inscribe en el periodo abierto más reciente del curso y falla explícitamente si no hay ninguno abierto | test falla (hoy usa `curso` sin periodo) | T004 | plan §4 (remediación) | 1 |
-| T036 |  | Corregir `MiInscripcionRutaPerfil` (competencias/views.py:286-303) para usar `InscripcionService` hasta que T035 quede verde | T035 verde | T035 | ídem | 1 |
-| T037 | [P] | Escribir test que falla: `get_inscrito`/`get_progreso` (capacitacion/serializers/colaborador.py) calculan sobre la inscripción más reciente, no la unión de todas | test falla | T013 | plan §4 (remediación) | 1 |
-| T038 | [P] | Corregir `get_inscrito`/`get_progreso` hasta que T037 quede verde | T037 verde | T037 | ídem | 1 |
+| T033 |  | Escribir test que falla: `MiPerfilCompetenciasView` muestra la inscripción más reciente por curso cuando hay dos | `python manage.py test competencias.tests.test_mi_perfil_competencias` falla (hoy colapsa por orden de iteración) | T002, T004, T041 | spec Acceptance (horneado tras `analyze` #1) | 1 |
+| T034 |  | Corregir `MiPerfilCompetenciasView` (competencias/views.py:177) hasta que T033 quede verde | T033 verde | T033 | spec Acceptance (horneado tras `analyze` #1) | 1 |
+| T035 |  | Escribir test que falla: `MiInscripcionRutaPerfil` auto-inscribe en el periodo abierto más reciente del curso y falla explícitamente si no hay ninguno abierto | test falla (hoy usa `curso` sin periodo) | T004 | spec Acceptance (horneado tras `analyze` #1) | 1 |
+| T036 |  | Corregir `MiInscripcionRutaPerfil` (competencias/views.py:286-303) para usar `InscripcionService` hasta que T035 quede verde | T035 verde | T035 | spec Acceptance (horneado tras `analyze` #1) | 1 |
+| T037 | [P] | Escribir test que falla: `get_inscrito`/`get_progreso` (capacitacion/serializers/colaborador.py) calculan sobre la inscripción más reciente, no la unión de todas | test falla | T013 | spec Acceptance (horneado tras `analyze` #1) | 1 |
+| T038 | [P] | Corregir `get_inscrito`/`get_progreso` hasta que T037 quede verde | T037 verde | T037 | spec Acceptance (horneado tras `analyze` #1) | 1 |
 | T039 |  | Prueba de invariante: `Inscripcion.curso` es de solo lectura en todo serializer y siempre coincide con `periodo.curso` tras crear/actualizar vía `InscripcionService` | `python manage.py test capacitacion.tests.test_inscripcion_service.InvarianteCursoTest` verde; intento de enviar `curso` distinto al de `periodo` por API es ignorado o rechazado | T004, T032 | plan §7 (riesgo de divergencia) | 1 |
 | T040 |  | Todos los done-checks anteriores en verde + `python manage.py test` (suite completa del proyecto) sin regresiones | suite completa sale verde | todos | todos los AC | — |
 
@@ -243,11 +245,19 @@ Ninguna decisión arquitectónica queda genuinamente abierta para este plan — 
 **T025 — Interfaces**
 - Produce: `AcreditacionService.acreditar(inscripcion: Inscripcion) -> None`, llamada únicamente desde `FinalizacionService` (T019, T027) — nunca desde un signal.
 
+**T027 — Interfaces** *(agregado al resolver `analyze` hallazgo MEDIUM #3)*
+- Consume: `FinalizacionService.reevaluar` (T019) — comparte su misma transacción/idempotencia, no la reimplementa.
+- Produce: `FinalizacionService.forzar(inscripcion: Inscripcion, actor: User) -> Inscripcion | YaFinalizada` — precondición: `actor` tiene rol Administrador (`HasRoleWithRoles(['Administrador'])`); postcondición idéntica a `reevaluar` cuando finaliza (mismo `completado_at`, misma invocación a `AcreditacionService.acreditar` dentro de la transacción).
+
+**T032 — Interfaces** *(agregado al resolver `analyze` hallazgo MEDIUM #3)*
+- Consume: `InscripcionService.crear` (T004), `EvidenciaService.registrar_progreso`/`registrar_resultado_evaluacion`/`registrar_respuesta_bloque` (T013), `FinalizacionService.forzar` (T027) — firmas exactas tal como quedaron fijadas en esas tareas, sin reinterpretarlas.
+- Produce: ningún contrato nuevo — esta tarea reconecta vistas existentes a los servicios ya definidos; su "Produce" es la ausencia de creación directa de modelos en `capacitacion/views.py`/`views_colaborador.py` fuera de esos tres servicios.
+
 ## Review Workload Forecast
 
 | Dimension | Forecast | Why |
 | --- | --- | --- |
 | Estimated changed lines | 900–1400 | 4 migraciones + 3 servicios nuevos + reconexión de 2 archivos de vistas grandes + ~20 archivos/métodos de prueba nuevos |
 | Files / areas | ~14: `capacitacion/models/` (3 archivos), `capacitacion/migrations/` (4), `capacitacion/services.py` (nuevo), `competencias/signals.py` → `competencias/services.py`, `capacitacion/views.py`, `capacitacion/views_colaborador.py`, `competencias/views.py`, `capacitacion/serializers/colaborador.py`, `capacitacion/tests/` (varios nuevos), `competencias/tests.py` |
-| Risk | tier máximo: **2** (T001, T002, T009, T010, T011, T024, T025 — migraciones y `competencias/signals.py`); 7 de 40 tareas en tier 2, requieren panel de 3 refutadores y aprobación humana cada una | `rsc risk` verificado contra cada conjunto de rutas esperado (ver plan §6/§7); migraciones y el signal de acreditación están explícitamente elevados en `.rsc/sello-config.json` |
+| Risk | tier máximo: **2** (T001, T002, T009, T010, T011, T024, T025 — migraciones y `competencias/signals.py`); 7 de 41 tareas en tier 2, requieren panel de 3 refutadores y aprobación humana cada una | `rsc risk` verificado contra cada conjunto de rutas esperado (ver plan §6/§7); migraciones y el signal de acreditación están explícitamente elevados en `.rsc/sello-config.json` |
 | Suggested delivery | **ask-on-risk** | Supera el `line_budget` de 400 (`config.yaml`) ampliamente; no es un cambio aislado — cada tarea tier 2 debe pararse para revisión antes de continuar con la que depende de ella, el resto puede encadenarse |
