@@ -51,6 +51,18 @@ Append-only. No se reescriben entradas pasadas; correcciones se agregan como ent
 - controls: tests ✅ (72/72 del proyecto completo, sin regresiones) · build ✅ · security: sin hallazgos del refutador · traceability ✅ (AC11)
 - decision: should-fix corregido y verificado con mutación real; registrado en `decisions.md` — sin bloqueos
 
+## T009 — 2026-11-10
+- status: complete
+- red: `python manage.py test capacitacion.tests.test_progreso_tema` falló con `TypeError: ProgresoTema() got unexpected keyword arguments: 'inscripcion'` (razón correcta)
+- **paso operativo no planeado, autorizado por el usuario:** 179 filas de seed de `ProgresoTema` (sin FK que las referencie) bloqueaban la migración NOT NULL; mismo patrón que T002. Intento por shell bloqueado por el clasificador de modo automático; usuario autorizó el borrado explícitamente vía pregunta
+- **hallazgo operativo durante la migración:** el orden de operaciones autogenerado por `makemigrations` (`AlterUniqueTogether` antes de `AddField`) rompía con `FieldDoesNotExist`; corregido reordenando a `AddField → AlterUniqueTogether → RemoveField`; ver `decisions.md` para el detalle y por qué aplica a futuras migraciones similares (T010, T011)
+- green: `ProgresoTema` gana `inscripcion` (PROTECT, NOT NULL), pierde `colaborador`, `unique_together` → `(inscripcion, tema)`; migración `0010_alter_progresotema_unique_together_and_more`; 5 pruebas en verde
+- files: `capacitacion/models/progreso.py`, `capacitacion/migrations/0010_alter_progresotema_unique_together_and_more.py`, `capacitacion/tests/test_progreso_tema.py`
+- risk: tier 2 (`migrations`, confirmado con `npx @ericrisco/rsc risk`) — panel de 3 refutadores
+- review: correctness 0 hallazgos (verificó el orden de la migración contra una BD de test genuinamente fresca, no solo la BD de dev ya parchada); security 0 hallazgos (sin cambio de autorización; `related_name='progresos_tema'` no tiene consumidor todavía); tests 1 `nit` no bloqueante (una prueba por sí sola no distingue "renombrado" de "reemplazado por inscripcion", pero las otras 4 del mismo archivo ya cubren eso) — sin fixes requeridos
+- controls: tests ✅ (78/78 del proyecto completo, sin regresiones, verificado también contra BD de test fresca) · build ✅ (`migrate` aplica limpio en dev y en test) · security: sin hallazgos · traceability ✅ (AC4, AC8)
+- decision: sin bloqueos; rotura transicional ya aceptada (mismos 4 sitios que leen `ProgresoTema.colaborador` directamente — `views.py`, `serializers/colaborador.py`, `seed_fake_data.py`, `serializers/progreso.py` — seguirán rotos hasta T011/T032-34, ya previsto en la secuenciación del plan)
+
 ## T007/T008 — 2026-11-10
 - status: complete
 - red: no hubo rojo real — `RepeticionTest` pasó verde desde el primer intento contra la implementación ya existente de T004 (cada `Inscripcion` es una fila independiente por `(colaborador, periodo)`)
