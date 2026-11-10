@@ -6,12 +6,12 @@ tags: [sdd, spec]
 timestamp: 2026-11-07T20:00:00Z
 topic: sdd
 slug: recorrido-formativo-periodos-acreditacion
-status: draft
+status: clarified
 ---
 
 # Spec — Periodos, inscripción como unidad de participación y acreditación centralizada
 
-> Slug: `recorrido-formativo-periodos-acreditacion` · Status: draft · Created: 2026-11-07
+> Slug: `recorrido-formativo-periodos-acreditacion` · Status: clarified (approved by user 2026-11-10; 4 open points resolved in `clarify` same day) · Created: 2026-11-07
 > Inherits: [constitution](../constitution.md) v1.0.0
 
 ## Problem & why
@@ -51,7 +51,7 @@ Se evaluó no introducir una entidad de periodo/impartición y en su lugar solo 
 ## Users & context
 
 - **Colaborador**: un empleado de Grupo Farrera inscrito en formación. Puede necesitar recursar un curso (recapacitación, recertificación) sin perder la evidencia de su participación anterior.
-- **Administrador**: gestiona cursos, crea/cierra periodos de impartición, puede corregir manualmente datos de inscripción cuando sea necesario. El colaborador nunca puede fijar directamente la finalización o el nivel acreditado de su propia inscripción. Si el administrador puede forzar una finalización excepcional por una vía distinta al cumplimiento normal de requisitos es, deliberadamente, una pregunta abierta — ver "Points to clarify".
+- **Administrador**: gestiona cursos, crea/cierra periodos de impartición, puede corregir manualmente datos de inscripción cuando sea necesario, y puede forzar una finalización excepcional fuera del cumplimiento normal de progreso/evaluaciones — siempre a través del mismo servicio centralizado de finalización, nunca editando directamente el estado de finalización o el nivel acreditado (ver Clarificación 2026-11-10 #3). El colaborador nunca puede fijar directamente la finalización, la calificación final ni el nivel acreditado de su propia inscripción.
 - **El propio backend**: es la autoridad que decide cuándo una inscripción se considera finalizada y cuándo corresponde acreditar una competencia — ya no el colaborador reportándolo él mismo.
 
 ## What the user can do
@@ -65,7 +65,9 @@ Se evaluó no introducir una entidad de periodo/impartición y en su lugar solo 
 ## What result they get
 
 - Al crear una inscripción sin especificar un periodo vigente del curso (porque no existe uno abierto, o porque ya tiene una inscripción activa en ese periodo), la operación es rechazada con una respuesta que identifica cuál de las dos condiciones falló — nunca un error genérico de base de datos.
-- Al completar válidamente todo lo requerido de una inscripción (progreso de todos los temas del curso + resultados de evaluación aprobatorios, según el curso lo tenga configurado), esa inscripción queda marcada como finalizada exactamente una vez, con una marca de tiempo, y si el curso acredita una competencia, el nivel del colaborador en esa competencia queda actualizado a más tardar en la misma operación — nunca requiere un paso manual adicional ni un segundo guardado.
+- Al completar válidamente todo lo requerido de una inscripción — progreso registrado en todos los `Tema` del curso, y además un `ResultadoEvaluacion` aprobatorio para cada `Evaluacion` asociada si el curso tiene alguna — esa inscripción queda marcada como finalizada exactamente una vez, con una marca de tiempo, y si el curso acredita una competencia, el nivel del colaborador en esa competencia queda actualizado a más tardar en la misma operación — nunca requiere un paso manual adicional ni un segundo guardado. Un curso sin ninguna evaluación asociada se finaliza solo con el progreso completo de todos sus temas.
+- Un administrador puede forzar la finalización excepcional de una inscripción que no cumple el criterio normal, invocando el mismo servicio centralizado — nunca editando el campo de finalización directamente — de forma que la operación quede igual de auditada e idempotente que una finalización automática.
+- Cerrar un periodo bloquea únicamente nuevas inscripciones a él; las inscripciones ya existentes dentro de ese periodo siguen avanzando y pueden finalizar normalmente después del cierre.
 - Repetir una acción que ya finalizó una inscripción (reenviar la misma señal de finalización, o que algo vuelva a guardar la inscripción ya finalizada) no vuelve a ejecutar la acreditación ni cambia el nivel otorgado — el resultado observable es idéntico al de la primera vez.
 - Consultar las inscripciones de un colaborador en un curso con dos periodos distintos muestra dos registros independientes, cada uno con su propio progreso y resultados, sin que uno contamine al otro.
 
@@ -106,14 +108,27 @@ Se evaluó no introducir una entidad de periodo/impartición y en su lugar solo 
 - Given un intento de registrar una respuesta con una opción que no pertenece al bloque referenciado, When se envía la solicitud, Then es rechazada.
 - Given un colaborador autenticado, When intenta fijar directamente la finalización, la calificación final o el nivel de competencia de su propia inscripción, Then la operación es rechazada o el campo es ignorado por el backend.
 - Given dos solicitudes concurrentes que intentan crear la inscripción de un mismo colaborador al mismo periodo, When ambas se procesan, Then como máximo una tiene éxito y la restricción se cumple también bajo concurrencia real, no solo en el camino secuencial.
+- Given una inscripción con progreso completo en todos los temas de su curso y resultados aprobatorios en todas sus evaluaciones, When se registra la última evidencia pendiente, Then la inscripción queda finalizada automáticamente sin ninguna acción manual adicional.
+- Given una inscripción de un curso sin ninguna evaluación asociada, When el colaborador completa el progreso de todos los temas del curso, Then la inscripción queda finalizada automáticamente.
+- Given una inscripción de un curso con evaluaciones, When el colaborador completa el progreso de todos los temas pero aún no aprueba alguna evaluación, Then la inscripción permanece sin finalizar.
+- Given una inscripción que no cumple el criterio normal de finalización, When un administrador invoca la finalización excepcional, Then la inscripción queda finalizada igual que una finalización automática (misma marca de tiempo, misma acreditación si corresponde, mismo registro de auditoría).
+- Given un periodo cerrado con una inscripción aún no finalizada dentro de él, When el colaborador sigue registrando progreso o resultados, Then esas operaciones se aceptan igual que si el periodo siguiera abierto, y la inscripción puede finalizar normalmente.
+- Given un periodo cerrado, When un colaborador intenta crear una nueva inscripción a ese periodo, Then la operación es rechazada.
 
 ## Points to clarify
 
-- **suposición tomada** — `Periodo` (impartición) tiene fecha de inicio obligatoria, fecha de fin opcional, y un estado abierto/cerrado explícito. *Base:* respuesta del usuario en la ronda de preguntas de esta fase. *Riesgo:* si en la práctica los periodos no tienen fin planeado de antemano (p. ej. "cohorte continua"), el campo fecha_fin nullable ya lo cubre; si se necesita más de dos estados (p. ej. "programado" antes de abrir), este modelo de dos estados quedaría corto — revisar en `plan`.
-- **suposición tomada** — `Inscripcion.periodo` es obligatorio (NOT NULL) desde esta spec en adelante; no se preserva ningún dato de prueba existente que no tenga periodo. *Base:* respuesta explícita del usuario (datos de desarrollo son descartables). *Riesgo:* ninguno relevante si efectivamente se recrea la base de desarrollo antes de aplicar el esquema nuevo — a confirmar como paso operativo en `plan`.
-- **suposición tomada** — el FK directo a `colaborador` se elimina de `ProgresoTema`, `ResultadoEvaluacion` y `ContenidoBloqueRespuesta`, derivándose siempre vía `inscripcion.colaborador`. *Base:* respuesta explícita del usuario, alineada con el principio de la constitución de no duplicar información derivable sin justificación de rendimiento/auditoría. *Riesgo:* toda consulta existente que filtre estos modelos por `colaborador` directo debe migrarse a filtrar por `inscripcion__colaborador` — impacto de código a mapear en `plan`, no solo de modelo.
-- **pregunta abierta** — ¿qué constituye exactamente "cumplir lo requerido" para que el servicio de finalización marque una inscripción como completada automáticamente, en ausencia de cualquier gating granular (que quedó fuera de alcance)? Candidatos observados en el código actual: progreso registrado en todos los `Tema` del curso, y/o un `ResultadoEvaluacion` aprobatorio para cada `Evaluacion` asociada. Necesito que el usuario confirme la regla exacta antes de que `plan` la traduzca a lógica concreta.
-- **pregunta abierta** — cuando un curso no tiene ninguna `Evaluacion` asociada (solo contenido informativo), ¿la finalización depende solo del progreso de temas, o requiere una acción explícita adicional (p. ej. que el colaborador la marque como "revisada", aunque el campo que la respalda ya no sea editable arbitrariamente)?
-- **pregunta abierta** — ¿puede un administrador alguna vez forzar manualmente la finalización de una inscripción (p. ej. por una excepción operativa), o la finalización es exclusivamente automática y cualquier excepción requiere un proceso fuera de este sistema?
+Todo lo que `specify` dejó abierto (3 preguntas abiertas) y el gap adicional que `clarify` encontró (cierre de periodo) quedó resuelto y horneado en el cuerpo de la spec — ver `## Clarifications` para el registro de cada decisión y su por qué, y los criterios de aceptación nuevos que la hacen observable. Las 3 suposiciones tomadas por `specify` fueron validadas sin cambios durante `clarify` 2026-11-10 (se mantienen tal como se decidieron: `Periodo` con fecha de inicio obligatoria/fin opcional/estado; `Inscripcion.periodo` obligatorio; FK directo a `colaborador` eliminado de `ProgresoTema`/`ResultadoEvaluacion`/`ContenidoBloqueRespuesta`).
+
+Solo quedan abiertos los dos puntos que `specify` marcó como intencionalmente fuera de este ciclo:
+
 - **decisión diferida** — el diseño de una bitácora de niveles de competencia otorgados históricamente (no solo el nivel vigente) queda fuera de este ciclo, tal como ya lo marcaba la auditoría previa.
 - **área no formulable** — cómo interactuará exactamente el futuro gating granular (bloque obligatorio, video, desbloqueo secuencial) con la regla de finalización automática que esta spec define ahora; se sabe que habrá que revisar esa regla cuando llegue esa spec posterior, pero no se puede formular la pregunta precisa todavía porque esa spec no existe.
+
+## Clarifications
+
+**2026-11-10**
+
+1. **Q:** ¿Qué define la finalización automática cuando el curso tiene evaluaciones? → **Decisión:** progreso registrado en todos los `Tema` del curso Y un `ResultadoEvaluacion` aprobatorio para cada `Evaluacion` asociada. **Por qué:** usa solo evidencia que ya existe en el modelo actual, sin introducir gating nuevo (que quedó fuera de alcance).
+2. **Q:** ¿Qué finaliza un curso sin ninguna evaluación asociada? → **Decisión:** progreso completo de todos sus temas basta, sin acción de confirmación adicional. **Por qué:** consistente con la regla general; no pedir una acción extra que el propio modelo no exige en ningún otro camino.
+3. **Q:** ¿Puede un administrador forzar una finalización excepcional? → **Decisión:** sí, pero siempre a través del mismo servicio centralizado e idempotente — nunca editando `completado_at` u otro campo de estado directamente. **Por qué:** mantiene la auditoría y no reabre el riesgo de reacreditación fuera de control que esta spec corrige.
+4. **Q:** ¿Qué pasa con las inscripciones no finalizadas cuando se cierra su periodo? (gap encontrado por `clarify`, no estaba en la spec original) → **Decisión:** cerrar un periodo solo bloquea nuevas inscripciones a él; las existentes siguen avanzando y pueden finalizar normalmente después del cierre. **Por qué:** cerrar un periodo es una decisión administrativa sobre inscripciones *futuras*, no una orden de cancelar participaciones *en curso* — forzar un desenlace inmediato sería una pérdida de evidencia no solicitada por nadie.
