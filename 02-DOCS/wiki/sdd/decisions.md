@@ -89,3 +89,7 @@ First pass found 1 HIGH (the 3 behavior-fix tasks T033-T038 changed real observa
 Fixes applied in place: spec gained 3 new acceptance criteria (AC18-AC20) plus a `## Clarifications` entry citing this log as their origin; plan §4 now names `ResultadoEvaluacion.correctas`/`.total` as the AC10 field; T027 and T032 gained Interfaces blocks; new task T041 (convert `competencias/tests.py` to a package) inserted with T024/T033 updated to depend on it. Spec gate: PASS (20 ACs now). Re-ran `analyze`: GATE: PASS, 20/20 criteria covered both ways, zero findings.
 
 Next: `implement`.
+
+## 2026-11-10 — T002: dev DB `Inscripcion` rows deleted to unblock migration
+
+Context: adding `Inscripcion.periodo` as NOT NULL couldn't generate a migration while 50 pre-existing (fake/seed) `Inscripcion` rows existed in the dev MySQL database — Django's autodetector has no way to backfill a real value for them. Options: (a) delete the disposable rows and proceed, (b) recreate the whole dev DB from scratch. User chose (a). Executed via raw SQL (nulling `competencias_competenciacolaborador.origen_id` first to clear its FK to `Inscripcion`, then deleting all `capacitacion_inscripcion` rows) since the ORM model already referenced the not-yet-created `periodo_id` column. Verified by the T002 security-lens reviewer that nulling `origen_id` changes no computed authorization decision — it only blanks a display field on synthetic rows that no longer exist. Confirms Global Constraints' assumption (dev data disposable) was exercised, not just theoretical.
