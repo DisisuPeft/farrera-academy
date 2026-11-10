@@ -14,3 +14,4 @@
 | Frontend API contract — content blocks | `docs/CONTRATO_BLOQUES_FRONTEND.md` |
 | Spec — periodos, inscripción, acreditación centralizada | `02-DOCS/wiki/sdd/specs/recorrido-formativo-periodos-acreditacion.md` |
 | Plan — periodos, inscripción, acreditación centralizada | `02-DOCS/wiki/sdd/plans/recorrido-formativo-periodos-acreditacion.md` |
+| Analysis — periodos, inscripción, acreditación centralizada | `02-DOCS/wiki/sdd/analysis/recorrido-formativo-periodos-acreditacion.md` |
