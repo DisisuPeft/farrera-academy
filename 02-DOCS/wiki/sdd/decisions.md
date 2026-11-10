@@ -56,3 +56,20 @@ All 3 `suposición tomada` from `specify` validated unchanged. Baked into the sp
 Plan written to `02-DOCS/wiki/sdd/plans/recorrido-formativo-periodos-acreditacion.md`. No open architectural decisions remain blocking.
 
 **Isolation offered and declined.** `plan`'s protocol treats worktree isolation as non-optional when work lands on `main` — asked explicitly given this change's scope (chained migrations, field removals). User chose to keep the already-ratified main-direct policy (constitution §4.15) without exception for this feature. Proceeding straight to `tasks` → `implement` on `main`.
+
+## 2026-11-10 — Plan revised: `Inscripcion.curso` reinstated, coexists with `periodo`
+
+**Reversal of the prior same-day decision** ("curso removed in favor of deriving via periodo.curso"). User explicitly asked to keep both FKs coexisting and to evaluate the real blast radius of divergence before deciding.
+
+**What changed the decision:** a grep-verified (not hypothetical) inventory of the actual codebase found 7 real sites reading `Inscripcion.curso` directly for business logic, several of them bypassing any serializer entirely (a signal, two view methods, a serializer `source=` on a different model) — a computed read-only serializer field would not have served any of them. Two of the seven are pre-existing real bugs this feature would otherwise aggravate: `MiPerfilCompetenciasView` (competencias/views.py:177) silently collapses two inscripciones to the same curso into one dict entry, and `MiInscripcionRutaPerfil` (competencias/views.py:286-303) treats "ever enrolled in this curso" as done and creates `Inscripcion` rows via `curso` alone with no `periodo` at all.
+
+**Decision:** keep `curso` as a real, coexisting FK column on `Inscripcion`. It is never independently writable by any caller — only `InscripcionService` writes it, always copied from `periodo.curso` at the same time `periodo` is set. The invariant holds by construction (single write path), proven by a test, not by a database constraint (MySQL cannot express a cross-table column equality).
+
+**Three behavior decisions made alongside this** (user approved the recommended option in each):
+- `MiPerfilCompetenciasView`: show the most recent inscripción per curso (by `periodo.fecha_inicio`/`inscrito_at` descending), never an iteration-order artifact.
+- `MiInscripcionRutaPerfil`: auto-enroll via `InscripcionService` into the most recently opened periodo of the next curso; fail explicitly if none is open — never auto-create a periodo.
+- `get_inscrito`/`get_progreso` (capacitacion/serializers/colaborador.py): compute against the colaborador's most recent inscripción to that curso, not the union of all of them.
+
+**Deferred:** the pre-existing absence of `_scope_por_empresa` on `InscripcionViewSet`/`ProgresoTemaViewSet`/`ResultadoEvaluacionViewSet` — not caused by this feature, logged as a finding for a separate future scoping/security spec, not fixed in this cycle.
+
+Plan updated in place (§0, §2, §4, §6, §7). Next: `tasks`.
