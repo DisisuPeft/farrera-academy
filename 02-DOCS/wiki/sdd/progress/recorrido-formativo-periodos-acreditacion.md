@@ -50,3 +50,14 @@ Append-only. No se reescriben entradas pasadas; correcciones se agregan como ent
 - triangulación (fix): se agregó `self.assertEqual(len(resultados), 2, ...)` antes de contar los exitosos; verificado empíricamente que con esta aserción el mutante 2 ahora falla 3/3 corridas y la implementación real sigue pasando
 - controls: tests ✅ (72/72 del proyecto completo, sin regresiones) · build ✅ · security: sin hallazgos del refutador · traceability ✅ (AC11)
 - decision: should-fix corregido y verificado con mutación real; registrado en `decisions.md` — sin bloqueos
+
+## T007/T008 — 2026-11-10
+- status: complete
+- red: no hubo rojo real — `RepeticionTest` pasó verde desde el primer intento contra la implementación ya existente de T004 (cada `Inscripcion` es una fila independiente por `(colaborador, periodo)`)
+- verificación de que la prueba no era vacía: mutante propio (reusar una `Inscripcion` existente del mismo `curso` en vez de crear una nueva) — atrapado (`assertNotEqual` falla, `1 == 1`); el panel de revisión probó además 2 mutantes adicionales no intentados por el builder (resetear `completado_at` de la hermana; dedup por `curso` en vez de `periodo`) — ambos atrapados también
+- green: T008 fue un no-op de código (la implementación ya satisface la independencia de filas probada por T007)
+- files: `capacitacion/tests/test_inscripcion_service.py`
+- risk: tier 1 (confirmado con `npx @ericrisco/rsc risk`) — 1 revisor fresh-context (`refuter-tests`)
+- review: sin should-fix ni bloqueos; 1 hallazgo `question` (no es defecto): AC3 también exige "progreso no se mezcla", y `RepeticionTest` solo prueba independencia a nivel de fila `Inscripcion` — `ProgresoTema`/`ResultadoEvaluacion` todavía no tienen FK a `Inscripcion` (eso es T009/T010), así que esa mitad de AC3 queda correctamente diferida, no omitida por descuido. Registrado como nota de trazabilidad: AC3 no debe marcarse "cubierto por completo" hasta que T009/T010 (y su batería de pruebas correspondiente) aporten la prueba de no-mezcla de evidencia
+- controls: tests ✅ (73/73 del proyecto completo, sin regresiones) · build ✅ · security: sin hallazgos del refutador · traceability ⚠️ parcial y documentada (ver nota arriba — AC3 cubierto solo en su mitad "fila independiente")
+- decision: sin bloqueos; nota de trazabilidad registrada aquí para que T009/T010 cierren la mitad pendiente de AC3
