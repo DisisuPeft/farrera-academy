@@ -13,3 +13,4 @@
 | Audit — cursos/periodos/inscripciones/competencias decoupling | `docs/AUDITORIA_DESACOPLAMIENTO_CURSOS_PERIODOS_COMPETENCIAS.md` |
 | Frontend API contract — content blocks | `docs/CONTRATO_BLOQUES_FRONTEND.md` |
 | Spec — periodos, inscripción, acreditación centralizada | `02-DOCS/wiki/sdd/specs/recorrido-formativo-periodos-acreditacion.md` |
+| Plan — periodos, inscripción, acreditación centralizada | `02-DOCS/wiki/sdd/plans/recorrido-formativo-periodos-acreditacion.md` |
