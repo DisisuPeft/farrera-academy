@@ -73,3 +73,11 @@ Plan written to `02-DOCS/wiki/sdd/plans/recorrido-formativo-periodos-acreditacio
 **Deferred:** the pre-existing absence of `_scope_por_empresa` on `InscripcionViewSet`/`ProgresoTemaViewSet`/`ResultadoEvaluacionViewSet` — not caused by this feature, logged as a finding for a separate future scoping/security spec, not fixed in this cycle.
 
 Plan updated in place (§0, §2, §4, §6, §7). Next: `tasks`.
+
+## 2026-11-10 — Tasks appended to the plan
+
+40 tasks (T001-T040), TDD-shaped (test-then-impl pairs for every behavioral unit), each traced to a spec acceptance criterion (17 total, all covered both ways — no untraced task, no uncovered criterion) or to a plan §4 remediation item. Risk forecast per task group verified with `npx @ericrisco/rsc risk <paths>` (not guessed): migrations and model changes (T001, T002, T009, T010, T011) and anything touching `competencias/signals.py` (T024, T025) come back tier 2 — 7 of 40 tasks, each needing the three-refuter panel and human approval at `implement`. Everything else is tier 1. Suggested delivery: `ask-on-risk` (well over the 400-line review budget in `config.yaml`, and the tier-2 tasks must each pause for review before their dependents continue).
+
+Two genuine disjoint-file parallel-safe pairs found during slicing (T011 vs. T009/T010 — different model file; T037/T038 vs. the competencias/views.py group T033-036 — different file); everything else left sequential by default per the "when in doubt, leave blank" rule, since several plan-stage "parallelizable" guesses turned out to share a file once the actual files were identified (ProgresoTema and ResultadoEvaluacion both live in `capacitacion/models/progreso.py`, not separate files as the plan's §6 sequencing had loosely implied).
+
+Next: `analyze` — cross-check constitution ↔ spec ↔ plan ↔ tasks before `implement`.
