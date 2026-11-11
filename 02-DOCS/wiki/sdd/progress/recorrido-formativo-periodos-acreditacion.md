@@ -163,3 +163,22 @@ Append-only. No se reescriben entradas pasadas; correcciones se agregan como ent
 - review: 2 `nit` no bloqueantes — (1) el docstring de la primera prueba reclamaba probar la idempotencia de AC6 sin hacerlo realmente (corregido en esta misma ronda); (2) pregunta teórica sobre precisión de timestamp en comparaciones de microsegundos, sin repro concreto, descartada como riesgo pre-existente y compartido por cualquier aserción de `timezone.now()` en el proyecto
 - controls: tests ✅ (100 tests del proyecto, 95 verdes — mismas 5 fallas ya conocidas y aceptadas de T011/`test_respuestas_bloque.py`) · build ✅ · security: no aplica a este tier · traceability ✅ (AC6)
 - decision: fix trivial de documentación aplicado y registrado aquí (no ameritó entrada separada en decisions.md — es un ajuste de claridad, no una decisión de diseño)
+
+## T041 — 2026-11-11
+- status: complete
+- hallazgo: `competencias/tests.py` no existe en el repositorio (ni en el working tree ni en ningún commit de `HEAD`) — la premisa del plan (migrar pruebas existentes) estaba obsoleta; ver decisions.md
+- green: creado `competencias/tests/__init__.py` (paquete vacío), siguiendo el patrón de `capacitacion/tests/`
+- files: `competencias/tests/__init__.py`
+- risk: tier 1 (confirmado con `npx @ericrisco/rsc risk`) — cambio trivial, sin lógica, revisado junto con T024 (ver abajo) por ser su prerrequisito directo
+- controls: tests ✅ (`python manage.py test competencias` sigue en "0 tests", sin pérdida de cobertura porque no había ninguna) · build ✅
+- decision: registrada en decisions.md — tarea resuelta por omisión, sin conflicto de diseño
+
+## T024 — 2026-11-11
+- status: complete
+- red: `python manage.py test competencias.tests.test_acreditacion_regression` falla con `AssertionError: <NivelCompetencia: Nivel 3 (nivel-3)> != <NivelCompetencia: Nivel 2 (nivel-2)>` — reproduce el hallazgo real de la auditoría (el `post_save` de `competencias/signals.py` re-evalúa y sube de nivel al re-guardar una inscripción histórica, sin pasar por el servicio de finalización)
+- **bug propio detectado y corregido durante la escritura de la prueba:** `FinalizacionService.reevaluar()` retorna una instancia re-obtenida de la BD, no muta el objeto recibido — sin un `self.inscripcion.refresh_from_db()` en `setUp`, el `self.inscripcion.save()` posterior sobrescribía `completado_at` de vuelta a `None` con el valor obsoleto en memoria, haciendo que la guarda del signal (`if not instance.completado_at: return`) evitara el bug por completo y la prueba pasara en verde por la razón equivocada. Corregido agregando el `refresh_from_db()`.
+- files: `competencias/tests/test_acreditacion_regression.py`
+- risk: tier 1 (confirmado con `npx @ericrisco/rsc risk` sobre los archivos propios de la tarea — el forecast del plan era tier 2 porque anticipaba el cambio a `competencias/signals.py`, pero T024 solo agrega una prueba; esa tarea tier-2 real es T025, que sí modifica el signal)
+- review: 0 hallazgos — el revisor verificó de forma independiente la corrección del bug de staleness, confirmó que el signal está realmente conectado (no simulado/evitado), y corrió su propio contra-mutante (una forma plausible del fix real de T025) para confirmar que la prueba pasa en verde por la razón correcta una vez arreglado el bug real — no por un artefacto incidental
+- controls: tests ✅ (101 tests del proyecto, 95 verdes — 1 falla esperada y correcta de esta misma prueba de regresión + las mismas 5 fallas ya conocidas y aceptadas de T011/`test_respuestas_bloque.py`) · build ✅ · security: no aplica a este tier · traceability ✅ (AC7)
+- decision: sin bloqueos; esta prueba se deja intencionalmente en rojo — su corrección es el done-check de T025, no de esta tarea
