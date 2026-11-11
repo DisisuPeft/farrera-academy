@@ -240,3 +240,13 @@ Append-only. No se reescriben entradas pasadas; correcciones se agregan como ent
 - review: 0 hallazgos causados por este diff; 2 gaps preexistentes encontrados y confirmados como NO causados aquí (verificado con `git show HEAD` byte a byte) — (1) `MiResultadoEvaluacionSerializer.validate()` no cuenta duplicados, permitiendo inflar `correctas` con respuestas repetidas a una pregunta ya correcta (lógica movida, no creada, por este diff); (2) `MiInscripcionSerializer.curso` sigue escribible por PATCH, evadiendo `InscripcionService` — ya es el objetivo de T039
 - controls: tests ✅ (**130/130 — proyecto completo verde, sin ninguna falla**) · build ✅ (`manage.py check` limpio) · security: 0 hallazgos · traceability ✅ (AC1, AC2, AC8, AC9, AC10)
 - decision: sin bloqueos; gap de duplicados en `MiResultadoEvaluacionSerializer` anotado sin tarea asignada todavía — candidato a revisar en T040 (cierre de todos los done-checks); gap de `curso` escribible confirmado como el mismo ya anotado para T039
+
+## T033/T034 — 2026-11-11
+- status: complete
+- red: `python manage.py test competencias.tests.test_mi_perfil_competencias` falló con `AssertionError: 1 != 2` — con dos inscripciones al mismo curso, `MiPerfilCompetenciasView` reportaba el estado de la inscripción más ANTIGUA (ya finalizada) en vez de la más reciente (sin finalizar), exactamente el hallazgo DRIFT de `analyze` (colapso por orden de iteración de un dict)
+- green: `inscripciones_map` ahora se construye iterando `order_by('inscrito_at', 'pk')` (ascendente) en vez de `.all()` (orden default `-inscrito_at`, descendente) — así la inscripción más reciente es la última en sobrescribir la colisión de clave `curso_id` y queda como la que se reporta
+- files: `competencias/views.py`, `competencias/tests/test_mi_perfil_competencias.py`
+- risk: tier 1 (confirmado con `npx @ericrisco/rsc risk`) — 1 revisor fresh-context (`refuter-correctness`)
+- review: 0 hallazgos bloqueantes; 1 `question` — `order_by('inscrito_at')` sin `pk` como desempate secundario para el caso teórico de dos timestamps idénticos (sin repro concreto, el camino de escritura real de `InscripcionService.crear` hace esto extremadamente improbable) — corregido de todas formas por ser una mejora gratuita (`order_by('inscrito_at', 'pk')`)
+- controls: tests ✅ (**131/131 — proyecto completo verde**) · build ✅ (`manage.py check` limpio) · security: no aplica a este tier · traceability ✅ (spec Acceptance, hallazgo DRIFT #1 de `analyze`)
+- decision: fix trivial de desempate aplicado en la misma ronda; sin bloqueos
