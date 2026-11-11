@@ -280,3 +280,22 @@ Append-only. No se reescriben entradas pasadas; correcciones se agregan como ent
 - review: 0 hallazgos — confirmó que no hay un `curso = PrimaryKeyRelatedField(...)` explícito que tape el `read_only_fields` de Meta; confirmó que PUT está bloqueado (`http_method_names` sin `put`) y solo `partial_update` es alcanzable; revirtió el fix él mismo y reprodujo el `3 != 1` en vivo antes de restaurarlo, confirmando el RED→GREEN real. Nota de alcance (no hallazgo): el serializer admin (`InscripcionSerializer` en `progreso.py`, vía `InscripcionViewSet` gateado a rol Administrador) sigue dejando `curso` escribible sin cruce contra `periodo.curso` — consistente con el no-goal explícito de la tarea (admins fuera de alcance), se deja registrado para revisión futura si se decide ampliar el alcance
 - controls: tests ✅ (**137/137 — proyecto completo verde**) · build ✅ (`manage.py check` limpio) · security: no aplica a este tier · traceability ✅ (plan §7)
 - decision: sin bloqueos; sin fixes requeridos
+
+## T040 — 2026-11-11
+- status: complete
+- done-checks: los 40 done-checks anteriores (T001-T039, T041) verificados verdes individualmente, incluyendo cada módulo de test nombrado explícitamente en la tabla de tareas (`test_inscripcion_service`, `test_evidencia_service`, `test_finalizacion_service`, `test_acreditacion_regression`, `test_forzar_finalizacion`, `test_campos_solo_lectura_colaborador`, `test_periodo_cerrado_no_bloquea`, `test_reconexion_vistas_colaborador`, `test_mi_perfil_competencias`, `test_inscripcion_ruta_perfil`, `test_get_inscrito_get_progreso`) — 47/47 en ese subconjunto
+- suite completa: `python manage.py test` → **137/137 verde**, `manage.py check` limpio, sin regresiones
+- revisión de gaps diferidos (anotados en decisiones de T032/T037 para revisar en este cierre):
+  - **gap 1 (curso escribible)**: ya cerrado por T039
+  - **gap 2 (inflación de `correctas` por respuestas duplicadas en `MiResultadoEvaluacionSerializer`)**: encontrado real y corregido en este cierre — ver detalle abajo
+- red: `test_duplicar_una_pregunta_ya_respondida_no_infla_correctas_por_encima_del_total` (nuevo archivo `capacitacion/tests/test_resultado_evaluacion_respuestas_duplicadas.py`) falló con `201 != 400` — `validate()` comparaba conjuntos (deduplica), así que responder P1 dos veces + P2 una vez (evaluación de 2 preguntas) pasaba la validación completa y `correctas` se calculaba sobre la lista cruda sin deduplicar, pudiendo superar `total`
+- green: se agregó chequeo `len(lista) != len(set(lista))` antes del chequeo de completitud en `MiResultadoEvaluacionSerializer.validate()` — rechaza con 400 cualquier pregunta respondida más de una vez, nunca deduplica en silencio
+- files: `capacitacion/serializers/colaborador.py`, `capacitacion/tests/test_resultado_evaluacion_respuestas_duplicadas.py`
+- risk: tier 1 (confirmado con `npx @ericrisco/rsc risk`) — 1 revisor fresh-context (`refuter-correctness`)
+- review: 0 hallazgos — confirmó que el modelo `Pregunta`/`OpcionPregunta` no soporta ningún tipo multi-select (rechazar de plano no bloquea ningún caso legítimo); grepeó el resto del código buscando el mismo patrón set-vs-lista sobre input directo del cliente, no encontró otra instancia (los otros dos usos similares de `set()` operan sobre datos restringidos por la base de datos, no sobre listas crudas del cliente); confirmó que el test de happy-path existente (una respuesta por pregunta) sigue pasando
+- controls: tests ✅ (**138/138 — proyecto completo verde**) · build ✅ (`manage.py check` limpio) · security: no aplica a este tier · traceability ✅ (todos los AC; este fix específico traza a AC12/AC14 — integridad del criterio de finalización)
+- decision: sin bloqueos; sin fixes requeridos — con esta tarea se cierran ambos gaps diferidos y el proyecto queda con los 42 done-checks verdes (T001-T041) + suite completa 138/138
+
+---
+
+**Implementación (ASDD stage 4) completa.** Las 42 tareas del plan (T001-T041) están en estado `complete`, sin entradas en la cola de decisiones (`## Decision queue`), sin hallazgos de revisión abiertos. Siguiente paso del chain: stage 5 (closing) — `verify` (modo cierre sobre toda la rama contra `main`), `review` (cierre contra el spec), `ship`.
