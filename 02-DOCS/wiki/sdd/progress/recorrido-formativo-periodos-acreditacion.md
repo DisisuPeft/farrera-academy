@@ -129,3 +129,15 @@ Append-only. No se reescriben entradas pasadas; correcciones se agregan como ent
 - review: 0 hallazgos; nota de calidad de evidencia no bloqueante (el mutante propio del builder probaba la restricción de BD, no las aserciones de la prueba — el panel cerró la brecha con su propio mutante)
 - controls: tests ✅ (93 tests del proyecto, 88 verdes — mismas 5 fallas ya conocidas y aceptadas de T011/`test_respuestas_bloque.py`) · build ✅ · security: no aplica a este tier · traceability ✅ (AC4)
 - decision: sin bloqueos; sin fixes requeridos
+
+## T018/T019 — 2026-11-11
+- status: complete
+- red: `python manage.py test capacitacion.tests.test_finalizacion_service` falló con `AssertionError: unexpectedly None` (`FinalizacionService.reevaluar` era un no-op stub; razón correcta)
+- green (intento 1): `FinalizacionService.reevaluar(inscripcion)` — transaccional, `select_for_update()` sobre la `Inscripcion`, idempotente (si `completado_at` ya tiene valor, retorna sin cambios); criterio: todos los `Tema` del curso tienen `ProgresoTema` de esa inscripción Y toda `Evaluacion` asociada (por `curso` o por `modulo__curso`) tiene al menos un `ResultadoEvaluacion` aprobatorio (`correctas/total*100 >= puntaje_minimo`)
+- **hallazgo should-fix del panel, corregido en el mismo ciclo:** un curso sin ningún tema cumplía el criterio vacuamente (conjunto vacío == conjunto vacío) y finalizaba sin evidencia real — ver decisions.md para el escenario completo y el fix (`if not temas_curso.exists(): return False`)
+- green (fix): prueba nueva (`test_no_finaliza_un_curso_sin_ningun_tema`) agregada y verificada contra un mutante que reproduce el bug original; revertido, verde de nuevo
+- files: `capacitacion/services/finalizacion_service.py`, `capacitacion/tests/test_finalizacion_service.py`
+- risk: tier 1 (confirmado con `npx @ericrisco/rsc risk` sobre los archivos propios de la tarea) — 1 revisor fresh-context (`refuter-correctness`)
+- review: ronda 1 — 1 `should-fix` (curso sin temas); ronda 2 — 0 hallazgos, confirmó además que `ProgresoTema.tema` es `on_delete=PROTECT` (el escenario "temas borrados con progreso existente" es imposible por esquema, no solo improbable)
+- controls: tests ✅ (96 tests del proyecto, 91 verdes — mismas 5 fallas ya conocidas y aceptadas de T011/`test_respuestas_bloque.py`, sin fallas nuevas) · build ✅ · security: no aplica a este tier · traceability ✅ (AC12, AC14)
+- decision: fix aplicado y registrado en decisions.md; nota de alcance — esta implementación todavía NO invoca ninguna acreditación explícita (`AcreditacionService` no existe hasta T025); el `post_save` de `competencias/signals.py` sigue activo sin cambios y se dispara igual vía `inscripcion.save(update_fields=['completado_at'])`, comportamiento transicional ya aceptado y documentado en el plan — T025 reconecta esto
