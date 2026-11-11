@@ -141,3 +141,14 @@ Append-only. No se reescriben entradas pasadas; correcciones se agregan como ent
 - review: ronda 1 — 1 `should-fix` (curso sin temas); ronda 2 — 0 hallazgos, confirmó además que `ProgresoTema.tema` es `on_delete=PROTECT` (el escenario "temas borrados con progreso existente" es imposible por esquema, no solo improbable)
 - controls: tests ✅ (96 tests del proyecto, 91 verdes — mismas 5 fallas ya conocidas y aceptadas de T011/`test_respuestas_bloque.py`, sin fallas nuevas) · build ✅ · security: no aplica a este tier · traceability ✅ (AC12, AC14)
 - decision: fix aplicado y registrado en decisions.md; nota de alcance — esta implementación todavía NO invoca ninguna acreditación explícita (`AcreditacionService` no existe hasta T025); el `post_save` de `competencias/signals.py` sigue activo sin cambios y se dispara igual vía `inscripcion.save(update_fields=['completado_at'])`, comportamiento transicional ya aceptado y documentado en el plan — T025 reconecta esto
+
+## T020/T021 — 2026-11-11
+- status: complete
+- red: no hubo rojo real — ambas pruebas pasaron verde desde el primer intento contra la implementación ya existente de `FinalizacionService._criterio_cumplido` (T018/T019): cuando `evaluaciones_curso` está vacío, el `for` simplemente no itera y la función retorna `True` si los temas están completos — exactamente el comportamiento que pide AC13
+- verificación de que las pruebas no eran vacías: mutante propio (`if not evaluaciones_curso.exists(): return False`, forzando incorrectamente a requerir al menos una evaluación) — atrapó `test_finaliza_con_solo_progreso_completo_si_el_curso_no_tiene_evaluaciones`; el panel de revisión probó un mutante distinto (anular el `return False` del chequeo de temas completos) y confirmó que `test_no_finaliza_si_falta_progreso_de_algun_tema_aunque_no_haya_evaluaciones` lo atrapa, y que esta segunda prueba es la ÚNICA en todo el archivo que cubre la combinación "sin evaluaciones + temas incompletos" (al borrarla, ese mutante sobrevive sin que ninguna otra prueba lo note)
+- green: T021 fue un no-op de código (la implementación ya satisface AC13)
+- files: `capacitacion/tests/test_finalizacion_service.py`
+- risk: tier 1 (confirmado con `npx @ericrisco/rsc risk`) — 1 revisor fresh-context (`refuter-tests`)
+- review: 0 hallazgos; 2 preguntas no bloqueantes anotadas por el panel (cobertura separada de `curso=` vs `modulo__curso=` cuando ambos están ausentes; re-llamar `reevaluar` sin evaluaciones sobre una inscripción ya finalizada) — ninguna requiere acción en esta tarea
+- controls: tests ✅ (98 tests del proyecto, 93 verdes — mismas 5 fallas ya conocidas y aceptadas de T011/`test_respuestas_bloque.py`) · build ✅ · security: no aplica a este tier · traceability ✅ (AC13)
+- decision: sin bloqueos; sin fixes requeridos
