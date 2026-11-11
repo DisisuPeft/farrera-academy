@@ -250,3 +250,13 @@ Append-only. No se reescriben entradas pasadas; correcciones se agregan como ent
 - review: 0 hallazgos bloqueantes; 1 `question` — `order_by('inscrito_at')` sin `pk` como desempate secundario para el caso teórico de dos timestamps idénticos (sin repro concreto, el camino de escritura real de `InscripcionService.crear` hace esto extremadamente improbable) — corregido de todas formas por ser una mejora gratuita (`order_by('inscrito_at', 'pk')`)
 - controls: tests ✅ (**131/131 — proyecto completo verde**) · build ✅ (`manage.py check` limpio) · security: no aplica a este tier · traceability ✅ (spec Acceptance, hallazgo DRIFT #1 de `analyze`)
 - decision: fix trivial de desempate aplicado en la misma ronda; sin bloqueos
+
+## T035/T036 — 2026-11-11
+- status: complete
+- red: `python manage.py test competencias.tests.test_inscripcion_ruta_perfil` falló con `django.db.utils.IntegrityError: Column 'periodo_id' cannot be null` — `MiInscripcionRutaPerfil` llamaba `Inscripcion.objects.get_or_create(colaborador=.., curso=..)` directamente, sin `periodo` (NOT NULL desde hace varias tareas), crasheando en cualquier auto-inscripción vía ruta de aprendizaje
+- green: resuelve el periodo abierto más reciente del curso (mismo patrón exacto que `MisInscripcionesViewSet.create` de T032: `filter(estado=ABIERTO).order_by('-fecha_inicio').first()`); si no hay ninguno, 400 sin crear nada (ni inscripción ni periodo); si sí hay, llama `InscripcionService.crear`, manejando sus sentinels (`PeriodoNoAbierto`/`InscripcionDuplicada`) con 400 genérico
+- files: `competencias/views.py`, `competencias/tests/test_inscripcion_ruta_perfil.py`
+- risk: tier 1 (confirmado con `npx @ericrisco/rsc risk`) — 1 revisor fresh-context (`refuter-correctness`)
+- review: 0 hallazgos — confirmó que la ventana entre la lectura sin bloqueo del periodo en la vista y el `select_for_update` del servicio está correctamente cerrada por el re-chequeo del servicio; confirmó que `InscripcionDuplicada` no es código muerto (alcanzable por doble-submit concurrente) y que colapsarlo al mismo 400 genérico es seguro; confirmó que la resolución de "periodo más reciente" es idéntica byte a byte a la de T032, sin divergencia entre tareas separadas
+- controls: tests ✅ (**133/133 — proyecto completo verde**) · build ✅ (`manage.py check` limpio) · security: no aplica a este tier · traceability ✅ (AC18)
+- decision: sin bloqueos; sin fixes requeridos
