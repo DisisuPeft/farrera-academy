@@ -118,3 +118,14 @@ Append-only. No se reescriben entradas pasadas; correcciones se agregan como ent
 - review: 0 hallazgos (confirmó que la resolución por curso del fix anterior se reutiliza correctamente, que `**campos` no puede sobrescribir `es_correcta`, que el recorrido `bloque.tema.modulo.curso` es seguro, y que ambas pruebas nuevas no son vacías); 1 `question` no bloqueante sobre el orden de validación (opción-ajena se evalúa antes de resolver la inscripción, así que sin inscripción activa + opción ajena devuelve `ContenidoAjeno` en vez de `InscripcionNoEncontrada`) — sin caller todavía, no hay comportamiento observable divergente hoy; queda anotado para revisar en T032 si algún caller llega a distinguir estos dos sentinels
 - controls: tests ✅ (92 tests del proyecto, 87 verdes — mismas 5 fallas ya conocidas y aceptadas de T011/`test_respuestas_bloque.py`, sin fallas nuevas) · build ✅ · security: no aplica a este tier · traceability ✅ (AC9)
 - decision: sin bloqueos; sin fixes requeridos
+
+## T016/T017 — 2026-11-11
+- status: complete
+- red: no hubo rojo real — `test_progreso_de_la_primera_inscripcion_no_se_altera_al_registrar_en_la_segunda` pasó verde desde el primer intento contra la implementación ya existente de `EvidenciaService.registrar_progreso` (T012/T013), ya que la resolución por curso+más-reciente ya producía el comportamiento correcto para dos inscripciones activas al mismo curso
+- verificación de que la prueba no era vacía: mutante propio (invertir el orden de `_resolver_inscripcion_activa` a ascendente) — atrapado, pero vía `IntegrityError` de la restricción única `(inscripcion, tema)`, no vía una aserción propia; el panel de revisión señaló esto como evidencia incompleta y probó 2 mutantes adicionales no intentados por el builder: memoización/caché de la inscripción resuelta (atrapado también por el mismo `IntegrityError`) y "reemplazar en vez de agregar" (borrar el `ProgresoTema` de la otra inscripción antes de crear uno nuevo) — este último sí fue atrapado por una aserción propia de la prueba (`count() == 1` sobre `inscripcion_1`), confirmando que la mitad final de la prueba (independencia consultable) no es peso muerto
+- green: T017 fue un no-op de código (la implementación ya satisface la independencia de progreso probada por T016)
+- files: `capacitacion/tests/test_evidencia_service.py`
+- risk: tier 1 (confirmado con `npx @ericrisco/rsc risk`) — 1 revisor fresh-context (`refuter-tests`)
+- review: 0 hallazgos; nota de calidad de evidencia no bloqueante (el mutante propio del builder probaba la restricción de BD, no las aserciones de la prueba — el panel cerró la brecha con su propio mutante)
+- controls: tests ✅ (93 tests del proyecto, 88 verdes — mismas 5 fallas ya conocidas y aceptadas de T011/`test_respuestas_bloque.py`) · build ✅ · security: no aplica a este tier · traceability ✅ (AC4)
+- decision: sin bloqueos; sin fixes requeridos
