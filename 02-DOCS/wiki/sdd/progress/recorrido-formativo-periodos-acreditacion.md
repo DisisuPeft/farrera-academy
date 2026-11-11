@@ -299,3 +299,28 @@ Append-only. No se reescriben entradas pasadas; correcciones se agregan como ent
 ---
 
 **Implementación (ASDD stage 4) completa.** Las 42 tareas del plan (T001-T041) están en estado `complete`, sin entradas en la cola de decisiones (`## Decision queue`), sin hallazgos de revisión abiertos. Siguiente paso del chain: stage 5 (closing) — `verify` (modo cierre sobre toda la rama contra `main`), `review` (cierre contra el spec), `ship`.
+
+## Closing — verify — 2026-11-11
+- status: complete
+- veredicto: **PASS** — registro completo en `02-DOCS/wiki/sdd/verifications/recorrido-formativo-periodos-acreditacion-2026-11-11.md`
+- 42/42 done-checks con evidencia, 20/20 criterios de aceptación de la spec con evidencia observable, 0 entradas en la cola de decisiones
+- suite completa: 138/138 verde (corrida fresca), `manage.py check` limpio, sin migraciones pendientes
+- capas no ejecutadas registradas sin disfrazarlas de pasadas: `ruff` (no instalado), auditoría de dependencias (no configurada), cobertura (sustituida por conteo de tests + revisión adversarial por tarea)
+
+## Closing — review — 2026-11-11
+- status: complete
+- risk: tier 2 (confirmado con `npx @ericrisco/rsc risk` sobre el set de archivos real de la feature) — panel completo de 3 refutadores (correctness/security/tests)
+- review ronda 1: correctness → CHANGES REQUESTED (1 bloqueador + 2 should-fix, 1 descartado); security → CHANGES REQUESTED (1 bloqueador + 1 should-fix + 1 pregunta no bloqueante); tests → APPROVE (0 hallazgos, 5 mutaciones reales probadas y atrapadas)
+- **2 bloqueadores reales encontrados, que ninguna revisión por tarea había detectado** (cada una miraba su propio diff, nunca el conjunto contra las 7 vistas hermanas de scoping):
+  1. `InscripcionViewSet`/`ProgresoTemaViewSet`/`ResultadoEvaluacionViewSet` nunca aplicaban `_scope_por_empresa` — cualquier Administrador de cualquier empresa podía ver y forzar la finalización+acreditación de inscripciones de OTRA empresa. Confirmado en vivo por el revisor contra las fixtures del propio repo.
+  2. El `InscripcionSerializer` admin dejaba `completado_at`/`curso` escribibles por PATCH, evadiendo `FinalizacionService` por completo — contradice la Clarification #3 de la spec textualmente.
+  - **1 should-fix real:** `_criterio_cumplido` no filtraba `Tema` por `activo=True` (inconsistente con los serializers de progreso del colaborador) — un tema desactivado podía bloquear la finalización para siempre.
+  - 1 hallazgo descartado (posible fallo de idempotencia, atribuido por el propio revisor a corrupción de su base de pruebas; 5 corridas limpias lo descartan) y 1 pregunta no bloqueante (scoping de empresa del lado colaborador, fuera del alcance de los 20 AC de esta spec) quedan registrados, no bloquean.
+- fix: los 3 hallazgos reales corregidos con TDD (rojo→verde confirmado para cada uno), 8 tests nuevos (`test_empresa_scoping.py::InscripcionScopingTests` + `InscripcionCamposDeSoloLecturaAdminTests`, `test_finalizacion_service.py::test_tema_desactivado_no_bloquea_la_finalizacion`)
+- review ronda 2: `finding-verifier` fresh-context confirmó los 3 fixes cierran sus hallazgos (con sus propias mutaciones, revertidas sin residuo) y no introducen ningún defecto nuevo
+- controls: tests ✅ (**146/146 — proyecto completo verde**, 138+8) · build ✅ (`manage.py check` limpio) · security: revisado por el panel, 2 bloqueadores cerrados · traceability ✅ (AC10, AC15, Clarification #3)
+- decision: **APPROVE** — registro completo en `02-DOCS/wiki/sdd/reviews/recorrido-formativo-periodos-acreditacion.md`. Requiere aprobación humana antes de mergear (tier 2).
+
+---
+
+**Closing (ASDD stage 5) completo — verify PASS, review APPROVE.** Listo para `ship`, pendiente de la decisión del humano sobre cómo aterrizar el trabajo (nada fue commiteado en ningún momento, por instrucción explícita del usuario).
