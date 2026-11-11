@@ -152,3 +152,14 @@ Append-only. No se reescriben entradas pasadas; correcciones se agregan como ent
 - review: 0 hallazgos; 2 preguntas no bloqueantes anotadas por el panel (cobertura separada de `curso=` vs `modulo__curso=` cuando ambos están ausentes; re-llamar `reevaluar` sin evaluaciones sobre una inscripción ya finalizada) — ninguna requiere acción en esta tarea
 - controls: tests ✅ (98 tests del proyecto, 93 verdes — mismas 5 fallas ya conocidas y aceptadas de T011/`test_respuestas_bloque.py`) · build ✅ · security: no aplica a este tier · traceability ✅ (AC13)
 - decision: sin bloqueos; sin fixes requeridos
+
+## T022/T023 — 2026-11-11
+- status: complete
+- red: no hubo rojo real inicialmente — ambas pruebas pasaron verde desde el primer intento contra la implementación ya existente (`if inscripcion.completado_at is not None: return inscripcion`, ya presente desde T019)
+- verificación de que las pruebas no eran vacías: mutante propio (quitar la guarda de idempotencia por completo) — descubrió que la primera prueba (que borra el progreso antes de la segunda llamada) NO atrapa ese mutante, porque sin la guarda el criterio se re-evalúa, sale falso, y no escribe nada igual; agregué una segunda prueba más fuerte (`test_reevaluar_no_reescribe_completado_at_aunque_el_criterio_siga_cumplido`, criterio sigue cumplido en la segunda llamada) que sí atrapa el mutante — dos timestamps de microsegundo distinto. El panel reprodujo esto de forma independiente y probó un segundo mutante (invertir la condición de la guarda) — atrapado también, pero de forma trivial (rompe el `setUp`)
+- green: T023 fue casi un no-op de código (la guarda ya existía); el único cambio real fue agregar la prueba que faltaba y corregir el docstring de la primera para no reclamar que prueba la guarda cuando en realidad prueba una propiedad adyacente ("una vez finalizada, no se des-finaliza aunque la evidencia se rompa después")
+- files: `capacitacion/tests/test_finalizacion_service.py`
+- risk: tier 1 (confirmado con `npx @ericrisco/rsc risk`) — 1 revisor fresh-context (`refuter-tests`)
+- review: 2 `nit` no bloqueantes — (1) el docstring de la primera prueba reclamaba probar la idempotencia de AC6 sin hacerlo realmente (corregido en esta misma ronda); (2) pregunta teórica sobre precisión de timestamp en comparaciones de microsegundos, sin repro concreto, descartada como riesgo pre-existente y compartido por cualquier aserción de `timezone.now()` en el proyecto
+- controls: tests ✅ (100 tests del proyecto, 95 verdes — mismas 5 fallas ya conocidas y aceptadas de T011/`test_respuestas_bloque.py`) · build ✅ · security: no aplica a este tier · traceability ✅ (AC6)
+- decision: fix trivial de documentación aplicado y registrado aquí (no ameritó entrada separada en decisions.md — es un ajuste de claridad, no una decisión de diseño)
