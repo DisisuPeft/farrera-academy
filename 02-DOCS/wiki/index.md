@@ -16,3 +16,4 @@
 | Plan — periodos, inscripción, acreditación centralizada | `02-DOCS/wiki/sdd/plans/recorrido-formativo-periodos-acreditacion.md` |
 | Analysis — periodos, inscripción, acreditación centralizada | `02-DOCS/wiki/sdd/analysis/recorrido-formativo-periodos-acreditacion.md` |
 | Progress — periodos, inscripción, acreditación centralizada | `02-DOCS/wiki/sdd/progress/recorrido-formativo-periodos-acreditacion.md` |
+| Verification (closing) — periodos, inscripción, acreditación centralizada — 2026-11-11 | `02-DOCS/wiki/sdd/verifications/recorrido-formativo-periodos-acreditacion-2026-11-11.md` |
