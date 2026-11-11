@@ -1,0 +1,16 @@
+slug: recorrido-formativo-periodos-acreditacion
+state: parked
+reason: >
+  ASDD cycle complete through closing review (verify PASS, review APPROVE, tier 2).
+  Nothing committed by design — the user's standing instruction for this entire cycle
+  was "no hagas commits, yo los realizo." The work sits uncommitted on main (no feature
+  branch was opened for it). Landing decision (what to commit, in how many commits, with
+  what message) is left to the human; see final-report.md and the progress ledger's
+  "Closing — ship (explainer)" entry for the three adapted options and suggested commit
+  message.
+pr_ref: null
+merge_commit: null
+risk_tier: 2
+human_approval_required: true
+human_approval_obtained: false
+date: 2026-11-11

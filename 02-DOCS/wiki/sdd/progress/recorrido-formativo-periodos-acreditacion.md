@@ -324,3 +324,27 @@ Append-only. No se reescriben entradas pasadas; correcciones se agregan como ent
 ---
 
 **Closing (ASDD stage 5) completo — verify PASS, review APPROVE.** Listo para `ship`, pendiente de la decisión del humano sobre cómo aterrizar el trabajo (nada fue commiteado en ningún momento, por instrucción explícita del usuario).
+
+## Closing — ship (explainer, sin ejecutar git) — 2026-11-11
+- status: complete (explainer preparado; ninguna acción de git ejecutada por esta sesión, por instrucción explícita del usuario)
+- checklist de seguridad previa a aterrizar: review verdict APPROVE ✅ · árbol de trabajo NO limpio (73 rutas sin commitear — normal, nada se commiteó en todo el ciclo) · **rama: `main` directamente, no se abrió rama de feature** (convención de este ciclo: trabajo directo en main) · riesgo tier 2 conocido (`npx @ericrisco/rsc risk` sobre el set de archivos de la feature) · 0 entradas `blocking` en la cola de decisiones · escaneo de secretos en el diff: 0 coincidencias · autoría: `git config user.name/email` = DisisuPeft / defp240899@gmail.com (el usuario, no un bot) — limpio
+- como no hay una rama de feature que mergear (el trabajo vive directo en `main`, sin commitear), las 3 opciones de aterrizaje del skill `ship` se adaptan así:
+  1. **Commit directo en `main`** (equivalente a la "opción 1" del skill, ya que no hay nada que mergear) — el usuario revisa `git status`/`git diff` y commitea él mismo. Mensaje sugerido (sin trailer de IA, con gitmoji):
+     ```
+     ✨ feat: periodos de inscripción, evidencia por inscripción y acreditación centralizada
+
+     Implementa 02-DOCS/wiki/sdd/specs/recorrido-formativo-periodos-acreditacion.md.
+     Permite reinscripción a un curso en periodos distintos, separa el progreso/evidencia
+     por inscripción (antes se mezclaba directo por colaborador), y centraliza la
+     finalización + acreditación de competencias en servicios idempotentes en vez de
+     un signal sin salvaguardas. Cierra 2 bloqueadores de seguridad/correctness
+     encontrados en la revisión de cierre (ver 02-DOCS/wiki/sdd/reviews/<slug>.md).
+
+     Tests: 146/146 verde. Revisión de cierre: APPROVE (tier 2).
+     ```
+     Nota: el árbol tiene 73 rutas sin commitear en total, y varias no pertenecen a esta feature (acumulación de otras tareas de la sesión — harness, scoping de empresa, etc.). El usuario decide si los separa en commits distintos o los agrupa; esta sesión no asumió esa decisión por él.
+  2. **Pull request** — no aplica tal cual (no hay remoto de "feature branch" distinto de `main` en este flujo), pero si el usuario prefiere revisar el diff en una herramienta antes de aceptarlo, puede crear la rama él mismo (`git switch -c feature/periodos-acreditacion`) y seguir desde ahí con `gh pr create`.
+  3. **Dejar parqueado** — no commitear nada todavía. Es la opción por defecto hasta que el usuario decida: el bundle de archivo (`02-DOCS/wiki/sdd/archive/recorrido-formativo-periodos-acreditacion/`) ya documenta el estado como `parked` con el motivo exacto.
+- recomendación: opción 1 (commit directo en main), porque es exactamente el flujo que este ciclo ya seguía — no hay necesidad de PR en un repo sin protección de rama ni cultura de PR visible (`.github/` no tiene plantillas de PR en este proyecto). Aprobación humana requerida antes de aterrizar por ser tier 2 — esta sesión no la asume, solo la señala.
+- archive bundle escrito en `02-DOCS/wiki/sdd/archive/recorrido-formativo-periodos-acreditacion/` (`final-report.md`, `apply-progress.md`, `verification.md`, `review.md`, `state.yaml` con `state: parked`)
+- decision: ninguna acción de git ejecutada. El ciclo ASDD para esta feature queda en estado `parked` (explainer listo, esperando que el humano decida y commitee).
