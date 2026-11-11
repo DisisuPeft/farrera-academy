@@ -214,3 +214,14 @@ Append-only. No se reescriben entradas pasadas; correcciones se agregan como ent
 - review: 0 hallazgos sobre este diff; 1 observación adyacente no bloqueante — `MiInscripcionSerializer.curso` sigue siendo escribible por PATCH (permite a un colaborador cambiar el curso de su propia inscripción sin pasar por `InscripcionService`, rompiendo potencialmente la invariante `curso == periodo.curso`) — preexistente, fuera del alcance de AC10, y es exactamente lo que **T039** ya tiene planeado probar y cerrar
 - controls: tests ✅ (112 tests del proyecto, 107 verdes — mismas 5 fallas ya conocidas y aceptadas de T011/`test_respuestas_bloque.py`) · build ✅ (`manage.py check` limpio) · security: 0 hallazgos · traceability ✅ (AC10)
 - decision: sin bloqueos; el gap de `curso` escribible queda explícitamente anotado como el objetivo de T039, no un hallazgo nuevo que requiera una tarea adicional
+
+## T030/T031 — 2026-11-11
+- status: complete
+- red: no hubo rojo real — las 3 pruebas pasaron verde desde el primer intento, porque ningún servicio (`EvidenciaService`, `FinalizacionService`) consulta `Periodo.estado` hoy — solo `InscripcionService.crear` lo hace, y solo para nuevas inscripciones
+- verificación de que no eran vacías: mutante propio (agregar `periodo__estado='abierto'` al filtro de `_resolver_inscripcion_activa`) — atrapó exactamente `test_registrar_progreso_sigue_funcionando_tras_cerrar_el_periodo`, ninguna otra; el panel verificó esto de forma independiente y además probó su propio mutante distinto (agregar una compuerta de `periodo.estado` a `FinalizacionService._criterio_cumplido`) para descartar que la prueba de finalización fuera redundante con la de progreso — resultó ser realmente independiente, cada una atrapa un mutante que la otra no
+- green: T031 fue un no-op de código (la implementación ya satisface AC16/AC17)
+- files: `capacitacion/tests/test_periodo_cerrado_no_bloquea.py`
+- risk: tier 1 (confirmado con `npx @ericrisco/rsc risk`) — 1 revisor fresh-context (`refuter-tests`)
+- review: 1 `nit` no bloqueante — `test_nueva_inscripcion_al_periodo_cerrado_si_es_rechazada` duplica casi exactamente una prueba ya existente de T003/T004 (`test_rechaza_periodo_cerrado`), sin ningún mutante que distinga una de la otra (`InscripcionService.crear` siempre re-consulta por pk); aceptable como completitud narrativa de este archivo, no aporta evidencia de prueba independiente — sin fix requerido
+- controls: tests ✅ (115 tests del proyecto, 110 verdes — mismas 5 fallas ya conocidas y aceptadas de T011/`test_respuestas_bloque.py`) · build ✅ · security: no aplica a este tier · traceability ✅ (AC16, AC17)
+- decision: sin bloqueos; sin fixes requeridos
