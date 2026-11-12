@@ -236,3 +236,15 @@ Decisión (instrucción explícita del usuario): **no tocar `is_active`** — qu
 Por qué: reescribir el chequeo de `is_active` dentro de Django/SimpleJWT es invasivo y frágil (afecta además el panel de admin si algún día se usa) — mucho mayor riesgo que mantener `is_active` como un campo que simplemente nunca se toca. `status` ya era la fuente de verdad para el login (`CustomTokenObtainPairSerializer` ya lo chequeaba); extenderlo a los permisos cierra la inconsistencia sin tocar código de terceros.
 
 Tests: `user/tests.py::RolePermissionBackendStatusTests` (3 tests) — confirmado con mutación real (revertir el chequeo a `is_active` reproduce el fallo del test antes de la corrección, con un permiso real asignado al rol para que el test no dé falso-verde con un rol vacío). Suite completa: 149/149 verde.
+
+## 2026-11-12 — El progreso visual del colaborador exige "aprobado", no solo "intentado" (fuera del ciclo `recorrido-formativo-periodos-acreditacion`)
+
+Contexto: el usuario preguntó si el backend permite avanzar de módulo, reintentar una evaluación o hacer la evaluación final sin haber aprobado las anteriores. Investigación confirmó que sí — no hay (ni debe haber, por decisión explícita del usuario) ningún bloqueo de secuencia: el colaborador puede navegar y reintentar libremente, y el criterio real de acreditación (`FinalizacionService._criterio_cumplido`) ya exige aprobar, no solo intentar, antes de marcar `completado_at`.
+
+Pero se encontró una divergencia real: `CursoColaboradorSerializer.get_progreso` y `ModuloColaboradorSerializer.get_progreso` (`capacitacion/serializers/colaborador.py`) marcaban una evaluación como "completada" en la barra de progreso visual del colaborador por la mera **existencia** de un `ResultadoEvaluacion` (`.exists()` / `.distinct().count()`), sin mirar si `correctas/total` alcanzaba `evaluacion.puntaje_minimo`. Un colaborador que reprobaba un examen ya veía su progreso avanzar como si lo hubiera aprobado — la UI podía mostrar 100% sin que el curso pudiera acreditarse nunca, rompiendo la auditoría (el usuario: "siento que sería crucial ya que rompe de cierta forma una auditoría").
+
+Decisión: se alineó el progreso visual con el mismo criterio de aprobación que ya usa `FinalizacionService` — se agregó el helper `_hay_intento_aprobado(resultados)` en `capacitacion/serializers/colaborador.py` y se usó en ambos métodos `get_progreso` (curso y módulo), reemplazando los chequeos de mera existencia por "al menos un intento con `correctas/total*100 >= puntaje_minimo`".
+
+Por qué: dos nociones distintas de "completo" (intentado vs. aprobado) convivían en el mismo sistema sin que nada las reconciliara — la UI y la acreditación real podían divergir indefinidamente. Alinear la UI al criterio de acreditación, en vez de relajar la acreditación al criterio de la UI, porque el criterio de acreditación es el que importa para auditoría/cumplimiento.
+
+Tests: `capacitacion/tests/test_progreso_requiere_aprobado.py` (3 tests nuevos, TDD rojo→verde: confirmado rojo por la razón correcta antes del fix — un intento reprobado hacía `completados=1` en vez de `0`). Suite completa: 152/152 verde, sin regresiones.
