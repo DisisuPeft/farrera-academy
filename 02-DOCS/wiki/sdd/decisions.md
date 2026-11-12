@@ -248,3 +248,17 @@ Decisión: se alineó el progreso visual con el mismo criterio de aprobación qu
 Por qué: dos nociones distintas de "completo" (intentado vs. aprobado) convivían en el mismo sistema sin que nada las reconciliara — la UI y la acreditación real podían divergir indefinidamente. Alinear la UI al criterio de acreditación, en vez de relajar la acreditación al criterio de la UI, porque el criterio de acreditación es el que importa para auditoría/cumplimiento.
 
 Tests: `capacitacion/tests/test_progreso_requiere_aprobado.py` (3 tests nuevos, TDD rojo→verde: confirmado rojo por la razón correcta antes del fix — un intento reprobado hacía `completados=1` en vez de `0`). Suite completa: 152/152 verde, sin regresiones.
+
+## 2026-11-12 — Límite de intentos por evaluación, configurable por evaluación, default 3 (fuera del ciclo `recorrido-formativo-periodos-acreditacion`)
+
+Contexto: siguiendo de la pregunta anterior, se confirmó que el backend no limitaba los reintentos de una evaluación — solo el frontend lo bloqueaba visualmente. El usuario pidió hacerlo configurable, con 3 como default actual.
+
+Decisión de diseño (no preguntada explícitamente, pero sin ambigüedad real dado el patrón ya existente): el límite se configura **por evaluación**, no como un setting global — igual que `puntaje_minimo` ya es por evaluación, no global. Se agregó `Evaluacion.intentos_maximos` (`PositiveSmallIntegerField`, default 3, migración `0013_evaluacion_intentos_maximos`), expuesto en `EvaluacionSerializer` (admin) para que cualquier evaluación pueda tener su propio límite.
+
+Aplicación: `EvidenciaService.registrar_resultado_evaluacion` (`capacitacion/services/evidencia_service.py`) ahora cuenta los intentos ya registrados (`ResultadoEvaluacion.objects.filter(inscripcion=inscripcion, evaluacion=evaluacion).count()`) y devuelve un nuevo sentinel `IntentosAgotados()` si `intentos_usados >= evaluacion.intentos_maximos`, en vez de crear el resultado. `MisResultadosViewSet.create` (`capacitacion/views_colaborador.py`) lo traduce a `400` con `detail` explicando que se agotaron los intentos — mismo patrón que `InscripcionNoEncontrada`/`ContenidoAjeno` ya usaban.
+
+Por qué por-evaluación y no global: el modelo ya tiene el precedente exacto (`puntaje_minimo`) para "cada evaluación decide su propia regla"; un setting global sería menos flexible y rompería esa consistencia sin que nadie lo pidiera.
+
+Nota: `test_resultado_evaluacion.py::test_permite_multiples_intentos_por_inscripcion` sigue verde sin cambios — crea `ResultadoEvaluacion` directo vía ORM (sin pasar por `EvidenciaService`), así que el límite nuevo, que vive en la capa de servicio/vista (no una constraint de BD), no lo afecta. Es intencional: la regla de negocio protege el endpoint público, no inserciones internas/administrativas directas.
+
+Tests: `capacitacion/tests/test_intentos_maximos_evaluacion.py` (4 tests nuevos: default=3, límite configurado respetado, 400 end-to-end vía el endpoint real, límite más alto permite más reintentos). Suite completa: 156/156 verde, sin regresiones.
