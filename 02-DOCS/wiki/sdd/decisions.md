@@ -262,3 +262,13 @@ Por qué por-evaluación y no global: el modelo ya tiene el precedente exacto (`
 Nota: `test_resultado_evaluacion.py::test_permite_multiples_intentos_por_inscripcion` sigue verde sin cambios — crea `ResultadoEvaluacion` directo vía ORM (sin pasar por `EvidenciaService`), así que el límite nuevo, que vive en la capa de servicio/vista (no una constraint de BD), no lo afecta. Es intencional: la regla de negocio protege el endpoint público, no inserciones internas/administrativas directas.
 
 Tests: `capacitacion/tests/test_intentos_maximos_evaluacion.py` (4 tests nuevos: default=3, límite configurado respetado, 400 end-to-end vía el endpoint real, límite más alto permite más reintentos). Suite completa: 156/156 verde, sin regresiones.
+
+## 2026-11-12 — `ContenidoBloque.embed_url`: campo propio para embeds tipo Canva (fuera del ciclo `recorrido-formativo-periodos-acreditacion`)
+
+Contexto: el usuario preguntó si el LMS puede soportar un "hipervínculo de Canva similar a otro LMS" — resultó ser el embed de Canva ("Compartir → Insertar en un sitio web", pensado para un `<iframe>`), no un link normal.
+
+Decisión de diseño: se agregó `ContenidoBloque.embed_url` (`CharField(max_length=500, blank=True)`, migración `0014_contenidobloque_embed_url`) como campo **separado** de `video_url`/`imagen_url`, en vez de reutilizar `video_url`. Por qué: `video_url` ya tiene semántica propia (el frontend probablemente lo trata como reproductor de video); mezclar un embed de Canva ahí obligaría al frontend a adivinar el tipo de contenido por el dominio de la URL. Un campo propio, combinado con un nuevo tipo en el catálogo `TipoBloqueContenido` (ej. `codigo='embed'`), le da al frontend una señal explícita (`tipo_codigo == 'embed'`) de que debe renderizar un `<iframe>` en vez de `<video>`/`<img>`.
+
+Alcance de lo implementado: solo el campo y su exposición en ambos serializers (`ContenidoBloqueSerializer` admin, `ContenidoBloqueColaboradorSerializer` colaborador). **No** se creó la fila del catálogo `TipoBloqueContenido` con `codigo='embed'` — esos tipos se gestionan como datos en runtime vía `/api/catalogos/tipos-bloque/` (no hay migraciones de datos para catálogos en este proyecto, confirmado por `grep` de `RunPython` en `catalogos/migrations/`), así que es el administrador quien debe crear esa fila desde el panel/API, no algo que viva en código.
+
+Tests: `capacitacion/tests/test_bloque_embed_url.py` (3 tests nuevos: admin crea bloque con `embed_url` vía API, colaborador lo ve al leer el bloque, default vacío). Suite completa: 159/159 verde, sin regresiones.
