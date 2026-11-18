@@ -1,4 +1,12 @@
-from .curso import CursoSerializer, ModuloSerializer, TemaSerializer, ContenidoBloqueSerializer
+from .curso import (
+    CursoSerializer,
+    ModuloSerializer,
+    TemaSerializer,
+    ContenidoBloqueSerializer,
+    ContenidoBloqueItemSerializer,
+    ContenidoBloqueArchivoSerializer,
+    ContenidoBloqueOpcionSerializer,
+)
 from .evaluacion import EvaluacionSerializer, PreguntaSerializer, OpcionPreguntaSerializer
 from .progreso import InscripcionSerializer, ProgresoTemaSerializer, ResultadoEvaluacionSerializer
 from .colaborador import (
@@ -9,6 +17,7 @@ from .colaborador import (
     ModuloColaboradorSerializer,
     TemaColaboradorSerializer,
     ContenidoBloqueColaboradorSerializer,
+    MiRespuestaBloqueSerializer,
     EvaluacionColaboradorSerializer,
     PreguntaColaboradorSerializer,
 )
@@ -18,6 +27,9 @@ __all__ = [
     'ModuloSerializer',
     'TemaSerializer',
     'ContenidoBloqueSerializer',
+    'ContenidoBloqueItemSerializer',
+    'ContenidoBloqueArchivoSerializer',
+    'ContenidoBloqueOpcionSerializer',
     'EvaluacionSerializer',
     'PreguntaSerializer',
     'OpcionPreguntaSerializer',
@@ -31,6 +43,7 @@ __all__ = [
     'ModuloColaboradorSerializer',
     'TemaColaboradorSerializer',
     'ContenidoBloqueColaboradorSerializer',
+    'MiRespuestaBloqueSerializer',
     'EvaluacionColaboradorSerializer',
     'PreguntaColaboradorSerializer',
 ]

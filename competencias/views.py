@@ -11,7 +11,8 @@ from competencias.models import (
     Competencia, CompetenciaCurso, CompetenciaPuesto,
     RutaAprendizaje, RutaAprendizajeCurso, CompetenciaColaborador,
 )
-from capacitacion.models import Inscripcion
+from capacitacion.models import Inscripcion, Periodo
+from capacitacion.services.inscripcion_service import InscripcionDuplicada, InscripcionService, PeriodoNoAbierto
 from competencias.serializers import (
     CompetenciaSerializer,
     CompetenciaCursoSerializer,
@@ -172,10 +173,13 @@ class MiPerfilCompetenciasView(APIView):
         ).select_related('nivel_objetivo').prefetch_related('ruta_cursos__curso'):
             rutas_por_competencia.setdefault(ruta.competencia_id, []).append(ruta)
 
-        # Dict curso_id → inscripcion para saber cuáles tiene el usuario (completas o no)
+        # Dict curso_id → inscripcion más reciente para saber cuáles tiene el
+        # usuario (completas o no). Se itera ascendente por `inscrito_at`
+        # para que, si hay varias inscripciones al mismo curso, la más
+        # reciente sea la última en sobrescribir y por lo tanto la que quede.
         inscripciones_map = {
             i.curso_id: i
-            for i in request.user.capacitacion_inscripcion_set.all()
+            for i in request.user.capacitacion_inscripcion_set.order_by('inscrito_at', 'pk')
         }
 
         resultado = []
@@ -298,18 +302,32 @@ class MiInscripcionRutaPerfil(APIView):
                 status=status.HTTP_200_OK,
             )
 
-        inscripcion, creada = Inscripcion.objects.get_or_create(
-            colaborador=request.user,
-            curso=siguiente.curso,
+        periodo = (
+            Periodo.objects
+            .filter(curso=siguiente.curso, estado=Periodo.Estado.ABIERTO)
+            .order_by('-fecha_inicio')
+            .first()
         )
+        if periodo is None:
+            return Response(
+                {'detail': 'No hay un periodo abierto para el siguiente curso de esta ruta.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        resultado = InscripcionService.crear(colaborador=request.user, periodo=periodo)
+        if isinstance(resultado, (PeriodoNoAbierto, InscripcionDuplicada)):
+            return Response(
+                {'detail': 'No se pudo crear la inscripción al siguiente curso de esta ruta.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         return Response(
             {
-                'creada': creada,
-                'inscripcion_id': inscripcion.id,
+                'creada': True,
+                'inscripcion_id': resultado.id,
                 'curso_id': siguiente.curso_id,
                 'curso_titulo': siguiente.curso.titulo,
                 'orden': siguiente.orden,
             },
-            status=status.HTTP_201_CREATED if creada else status.HTTP_200_OK,
+            status=status.HTTP_201_CREATED,
         )

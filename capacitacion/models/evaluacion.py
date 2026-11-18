@@ -11,6 +11,7 @@ class Evaluacion(BaseModel):
         related_name='evaluaciones',
     )
     puntaje_minimo = models.DecimalField(max_digits=5, decimal_places=2, default=70)
+    intentos_maximos = models.PositiveSmallIntegerField(default=3)
     curso = models.ForeignKey(
         'capacitacion.Curso',
         on_delete=models.CASCADE,

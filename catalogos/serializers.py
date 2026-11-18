@@ -45,6 +45,10 @@ class CatalogStatusSerializer(_BaseCatalogoSerializer):
 class TipoBloqueContenidoSerializer(_BaseCatalogoSerializer):
     class Meta(_BaseCatalogoSerializer.Meta):
         model = TipoBloqueContenido
+        fields = _BaseCatalogoSerializer.Meta.fields + (
+            'categoria', 'descripcion', 'config', 'validacion_schema',
+            'capacidades', 'version_esquema',
+        )
 
 
 class TipeTemaSerializer(_BaseCatalogoSerializer):

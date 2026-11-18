@@ -1,11 +1,13 @@
+from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from rest_framework.permissions import IsAuthenticated
+from rest_framework import status
 
 from user.authenticate import CustomJWTAuthentication
 
 from capacitacion.models import (
-    Inscripcion, ProgresoTema, ResultadoEvaluacion,
-    Curso, Modulo, Tema, ContenidoBloque,
+    Inscripcion, Periodo, ProgresoTema, ResultadoEvaluacion,
+    Curso, Modulo, Tema, ContenidoBloque, ContenidoBloqueRespuesta,
     Evaluacion, Pregunta,
 )
 from capacitacion.serializers import (
@@ -16,9 +18,14 @@ from capacitacion.serializers import (
     ModuloColaboradorSerializer,
     TemaColaboradorSerializer,
     ContenidoBloqueColaboradorSerializer,
+    MiRespuestaBloqueSerializer,
     EvaluacionColaboradorSerializer,
     PreguntaColaboradorSerializer,
 )
+from capacitacion.services.evidencia_service import (
+    ContenidoAjeno, EvidenciaService, InscripcionNoEncontrada, IntentosAgotados,
+)
+from capacitacion.services.inscripcion_service import InscripcionDuplicada, InscripcionService, PeriodoNoAbierto
 
 
 class _BaseColaboradorViewSet(ModelViewSet):
@@ -33,7 +40,9 @@ class MisInscripcionesViewSet(_BaseColaboradorViewSet):
     """
     GET  /mis-inscripciones/          → cursos en los que está inscrito
     POST /mis-inscripciones/          → auto-inscribirse a un curso { "curso": <id> }
-    PATCH /mis-inscripciones/{id}/    → marcar curso como completado { "completado_at": "..." }
+
+    `completado_at` es de solo lectura: la finalización la decide
+    `FinalizacionService`, nunca el colaborador directamente (AC10).
     """
     serializer_class = MiInscripcionSerializer
 
@@ -44,8 +53,31 @@ class MisInscripcionesViewSet(_BaseColaboradorViewSet):
             .filter(colaborador=self.request.user)
         )
 
-    def perform_create(self, serializer):
-        serializer.save(colaborador=self.request.user)
+    def create(self, request, *args, **kwargs):
+        curso_id = request.data.get('curso')
+        periodo = (
+            Periodo.objects
+            .filter(curso_id=curso_id, estado=Periodo.Estado.ABIERTO)
+            .order_by('-fecha_inicio')
+            .first()
+        )
+        if periodo is None:
+            return Response(
+                {'detail': 'No hay un periodo abierto para este curso.'}, status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        resultado = InscripcionService.crear(colaborador=request.user, periodo=periodo)
+        if isinstance(resultado, PeriodoNoAbierto):
+            return Response(
+                {'detail': 'El periodo ya no está abierto.'}, status=status.HTTP_400_BAD_REQUEST,
+            )
+        if isinstance(resultado, InscripcionDuplicada):
+            return Response(
+                {'detail': 'Ya estás inscrito en este periodo.'}, status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = self.get_serializer(resultado)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class MisProgresosViewSet(_BaseColaboradorViewSet):
@@ -60,11 +92,29 @@ class MisProgresosViewSet(_BaseColaboradorViewSet):
         return (
             ProgresoTema.objects
             .select_related('tema')
-            .filter(colaborador=self.request.user)
+            .filter(inscripcion__colaborador=self.request.user)
         )
 
-    def perform_create(self, serializer):
-        serializer.save(colaborador=self.request.user)
+    def create(self, request, *args, **kwargs):
+        tema_id = request.data.get('tema')
+        tema = Tema.objects.filter(pk=tema_id).first()
+        if tema is None:
+            return Response({'tema': ['Tema inválido.']}, status=status.HTTP_400_BAD_REQUEST)
+
+        resultado = EvidenciaService.registrar_progreso(colaborador=request.user, tema=tema)
+        if isinstance(resultado, InscripcionNoEncontrada):
+            return Response(
+                {'detail': 'No tienes una inscripción activa para el curso de este tema.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if isinstance(resultado, ContenidoAjeno):
+            return Response(
+                {'detail': 'Ese tema no pertenece al curso de tu inscripción activa.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = self.get_serializer(resultado)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class MisResultadosViewSet(_BaseColaboradorViewSet):
@@ -79,11 +129,81 @@ class MisResultadosViewSet(_BaseColaboradorViewSet):
         return (
             ResultadoEvaluacion.objects
             .select_related('evaluacion')
-            .filter(colaborador=self.request.user)
+            .filter(inscripcion__colaborador=self.request.user)
         )
 
-    def perform_create(self, serializer):
-        serializer.save(colaborador=self.request.user)
+    def create(self, request, *args, **kwargs):
+        input_serializer = self.get_serializer(data=request.data)
+        input_serializer.is_valid(raise_exception=True)
+
+        respuestas = input_serializer.validated_data['respuestas']
+        evaluacion = input_serializer.validated_data['evaluacion']
+        total = evaluacion.preguntas.count()
+        correctas = sum(1 for r in respuestas if r['opcion'].es_correcta)
+
+        resultado = EvidenciaService.registrar_resultado_evaluacion(
+            colaborador=request.user, evaluacion=evaluacion, correctas=correctas, total=total,
+        )
+        if isinstance(resultado, InscripcionNoEncontrada):
+            return Response(
+                {'detail': 'No tienes una inscripción activa para el curso de esta evaluación.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if isinstance(resultado, ContenidoAjeno):
+            return Response(
+                {'detail': 'Esa evaluación no pertenece al curso de tu inscripción activa.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if isinstance(resultado, IntentosAgotados):
+            return Response(
+                {'detail': 'Ya agotaste los intentos permitidos para esta evaluación.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        output_serializer = self.get_serializer(resultado)
+        return Response(output_serializer.data, status=status.HTTP_201_CREATED)
+
+
+class MisRespuestasBloqueViewSet(_BaseColaboradorViewSet):
+    """
+    GET  /mis-respuestas-bloque/      → mis intentos sobre bloques evaluativos embebidos
+    POST /mis-respuestas-bloque/      → responder { "bloque": <id>, "opcion_seleccionada": <id> }
+    (bloques tipo 'opcion-multiple'/'verdadero-falso', distinto del sistema formal de Evaluacion)
+    """
+    serializer_class = MiRespuestaBloqueSerializer
+    http_method_names = ['get', 'post', 'head', 'options']  # sin PATCH: cada envío es un intento nuevo
+
+    def get_queryset(self):
+        return (
+            ContenidoBloqueRespuesta.objects
+            .select_related('bloque', 'opcion_seleccionada')
+            .filter(inscripcion__colaborador=self.request.user)
+        )
+
+    def create(self, request, *args, **kwargs):
+        input_serializer = self.get_serializer(data=request.data)
+        input_serializer.is_valid(raise_exception=True)
+
+        bloque = input_serializer.validated_data['bloque']
+        opcion = input_serializer.validated_data['opcion_seleccionada']
+
+        resultado = EvidenciaService.registrar_respuesta_bloque(
+            colaborador=request.user, bloque=bloque, opcion=opcion,
+        )
+        if isinstance(resultado, InscripcionNoEncontrada):
+            return Response(
+                {'detail': 'No tienes una inscripción activa para el curso de este bloque.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if isinstance(resultado, ContenidoAjeno):
+            return Response(
+                {'opcion_seleccionada': 'Esa opción no pertenece al bloque indicado, o el bloque no pertenece '
+                 'al curso de tu inscripción activa.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        output_serializer = self.get_serializer(resultado)
+        return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 
 
 # ---------------------------------------------------------------------------
@@ -156,7 +276,12 @@ class ContenidoBloqueColaboradorViewSet(_BaseReadOnlyViewSet):
     serializer_class = ContenidoBloqueColaboradorSerializer
 
     def get_queryset(self):
-        qs = ContenidoBloque.objects.select_related('tipo').filter(activo=True)
+        qs = (
+            ContenidoBloque.objects
+            .select_related('tipo')
+            .prefetch_related('bloque_items', 'archivos', 'opciones')
+            .filter(activo=True)
+        )
         tema = self.request.query_params.get('tema')
         if tema:
             qs = qs.filter(tema_id=tema)

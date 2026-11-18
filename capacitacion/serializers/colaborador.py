@@ -1,10 +1,23 @@
 from rest_framework import serializers
 from capacitacion.models import (
     Inscripcion, ProgresoTema, ResultadoEvaluacion,
-    Curso, Modulo, Tema, ContenidoBloque,
+    Curso, Modulo, Tema, ContenidoBloque, ContenidoBloqueItem, ContenidoBloqueArchivo,
+    ContenidoBloqueOpcion, ContenidoBloqueRespuesta,
     Evaluacion, Pregunta, OpcionPregunta,
 )
 from competencias.models import CompetenciaCurso
+
+
+def _hay_intento_aprobado(resultados):
+    """Un intento cuenta como 'completado' en el progreso visual solo si
+    alcanzó evaluacion.puntaje_minimo — no por el mero hecho de existir.
+    Debe coincidir con el criterio real de acreditación en
+    FinalizacionService._criterio_cumplido, o la barra de progreso del
+    colaborador mentiría sobre lo que falta para acreditarse."""
+    return any(
+        r.total > 0 and (r.correctas / r.total) * 100 >= r.evaluacion.puntaje_minimo
+        for r in resultados
+    )
 
 
 class MiInscripcionSerializer(serializers.ModelSerializer):
@@ -13,7 +26,7 @@ class MiInscripcionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Inscripcion
         fields = ('id', 'curso', 'curso_titulo', 'inscrito_at', 'completado_at', 'activo')
-        read_only_fields = ('inscrito_at', 'activo')
+        read_only_fields = ('curso', 'inscrito_at', 'completado_at', 'activo')
 
 
 class MiProgresoTemaSerializer(serializers.ModelSerializer):
@@ -55,9 +68,14 @@ class MiResultadoEvaluacionSerializer(serializers.ModelSerializer):
         respuestas = data.get('respuestas', [])
 
         preguntas_evaluacion = set(evaluacion.preguntas.values_list('id', flat=True))
-        preguntas_respondidas = {r['pregunta'].id for r in respuestas}
+        ids_preguntas_respondidas = [r['pregunta'].id for r in respuestas]
 
-        if preguntas_respondidas != preguntas_evaluacion:
+        if len(ids_preguntas_respondidas) != len(set(ids_preguntas_respondidas)):
+            raise serializers.ValidationError(
+                {'respuestas': 'No puedes responder la misma pregunta más de una vez.'}
+            )
+
+        if set(ids_preguntas_respondidas) != preguntas_evaluacion:
             raise serializers.ValidationError(
                 {'respuestas': 'Debes responder todas las preguntas de la evaluación.'}
             )
@@ -70,17 +88,38 @@ class MiResultadoEvaluacionSerializer(serializers.ModelSerializer):
 
         return data
 
+
+class MiRespuestaBloqueSerializer(serializers.ModelSerializer):
+    """
+    Intento de un colaborador sobre un bloque evaluativo embebido
+    ('opcion-multiple'/'verdadero-falso'). Igual que MiResultadoEvaluacionSerializer:
+    el cliente solo manda qué opción eligió, `es_correcta` se calcula en el
+    servidor y nunca se recibe del cliente.
+    """
+    bloque_texto = serializers.CharField(source='bloque.texto', read_only=True)
+
+    class Meta:
+        model = ContenidoBloqueRespuesta
+        fields = (
+            'id', 'bloque', 'bloque_texto', 'opcion_seleccionada',
+            'es_correcta', 'respondido_at', 'activo',
+        )
+        read_only_fields = ('es_correcta', 'respondido_at', 'activo')
+
+    def validate(self, data):
+        bloque = data['bloque']
+        opcion = data['opcion_seleccionada']
+        if opcion.bloque_id != bloque.id:
+            raise serializers.ValidationError(
+                {'opcion_seleccionada': 'Esa opción no pertenece al bloque indicado.'}
+            )
+        return data
+
     def create(self, validated_data):
-        respuestas = validated_data.pop('respuestas')
-        evaluacion = validated_data['evaluacion']
-
-        total = evaluacion.preguntas.count()
-        correctas = sum(1 for r in respuestas if r['opcion'].es_correcta)
-
-        return ResultadoEvaluacion.objects.create(
+        opcion = validated_data['opcion_seleccionada']
+        return ContenidoBloqueRespuesta.objects.create(
             **validated_data,
-            correctas=correctas,
-            total=total,
+            es_correcta=opcion.es_correcta,
         )
 
 
@@ -98,6 +137,14 @@ class _CompetenciaCursoResumenSerializer(serializers.ModelSerializer):
     class Meta:
         model = CompetenciaCurso
         fields = ('nombre', 'codigo', 'icono', 'color', 'nivel')
+
+
+def _inscripcion_reciente(user, curso):
+    """La inscripción más reciente del colaborador a ese curso, o None si no
+    tiene ninguna. `inscrito`/`progreso` se calculan sobre esta — nunca
+    sobre la unión de todas las inscripciones al mismo curso (spec
+    Acceptance, horneado tras `analyze`)."""
+    return Inscripcion.objects.filter(colaborador=user, curso=curso).order_by('-inscrito_at', '-pk').first()
 
 
 class CursoColaboradorSerializer(serializers.ModelSerializer):
@@ -118,32 +165,43 @@ class CursoColaboradorSerializer(serializers.ModelSerializer):
 
     def get_inscrito(self, obj):
         user = self.context['request'].user
-        return obj.inscripciones.filter(colaborador=user, activo=True).exists()
+        inscripcion = _inscripcion_reciente(user, obj)
+        return inscripcion is not None and inscripcion.activo
 
     def get_progreso(self, obj):
         user = self.context['request'].user
+        inscripcion = _inscripcion_reciente(user, obj)
 
         temas_total = Tema.objects.filter(modulo__curso=obj, activo=True).count()
-        temas_completados = ProgresoTema.objects.filter(colaborador=user, tema__modulo__curso=obj).count()
-
         modulos_con_eval = Modulo.objects.filter(curso=obj, tiene_evaluacion=True, activo=True).count()
-        evals_modulo_hechas = (
-            ResultadoEvaluacion.objects
-            .filter(colaborador=user, evaluacion__modulo__curso=obj, evaluacion__modulo__isnull=False)
-            .values('evaluacion__modulo')
-            .distinct()
-            .count()
-        )
-
         tiene_eval_final = Evaluacion.objects.filter(curso=obj, modulo__isnull=True, activo=True).exists()
+        total = temas_total + modulos_con_eval + (1 if tiene_eval_final else 0)
+
+        if inscripcion is None:
+            return {'completados': 0, 'total': total, 'porcentaje': 0}
+
+        temas_completados = ProgresoTema.objects.filter(inscripcion=inscripcion, tema__modulo__curso=obj).count()
+
+        resultados_modulo = (
+            ResultadoEvaluacion.objects
+            .filter(inscripcion=inscripcion, evaluacion__modulo__curso=obj, evaluacion__modulo__isnull=False)
+            .select_related('evaluacion')
+        )
+        modulos_aprobados = {
+            r.evaluacion.modulo_id for r in resultados_modulo
+            if r.total > 0 and (r.correctas / r.total) * 100 >= r.evaluacion.puntaje_minimo
+        }
+        evals_modulo_hechas = len(modulos_aprobados)
+
         eval_final_hecha = (
-            ResultadoEvaluacion.objects.filter(
-                colaborador=user, evaluacion__curso=obj, evaluacion__modulo__isnull=True,
-            ).exists()
+            _hay_intento_aprobado(
+                ResultadoEvaluacion.objects.filter(
+                    inscripcion=inscripcion, evaluacion__curso=obj, evaluacion__modulo__isnull=True,
+                ).select_related('evaluacion')
+            )
             if tiene_eval_final else False
         )
 
-        total = temas_total + modulos_con_eval + (1 if tiene_eval_final else 0)
         completados = temas_completados + evals_modulo_hechas + (1 if eval_final_hecha else 0)
         porcentaje = round((completados / total) * 100) if total else 0
         return {'completados': completados, 'total': total, 'porcentaje': porcentaje}
@@ -158,18 +216,24 @@ class ModuloColaboradorSerializer(serializers.ModelSerializer):
 
     def get_progreso(self, obj):
         user = self.context['request'].user
+        inscripcion = _inscripcion_reciente(user, obj.curso)
 
         temas_total = Tema.objects.filter(modulo=obj, activo=True).count()
-        temas_completados = ProgresoTema.objects.filter(colaborador=user, tema__modulo=obj).count()
+        total = temas_total + 1 if obj.tiene_evaluacion else temas_total
+
+        if inscripcion is None:
+            return {'completados': 0, 'total': total, 'porcentaje': 0}
+
+        temas_completados = ProgresoTema.objects.filter(inscripcion=inscripcion, tema__modulo=obj).count()
 
         if obj.tiene_evaluacion:
-            total = temas_total + 1
-            eval_hecha = ResultadoEvaluacion.objects.filter(
-                colaborador=user, evaluacion__modulo=obj,
-            ).exists()
-            completados = temas_completados + (1 if eval_hecha else 0)
+            eval_aprobada = _hay_intento_aprobado(
+                ResultadoEvaluacion.objects.filter(
+                    inscripcion=inscripcion, evaluacion__modulo=obj,
+                ).select_related('evaluacion')
+            )
+            completados = temas_completados + (1 if eval_aprobada else 0)
         else:
-            total = temas_total
             completados = temas_completados
 
         porcentaje = round((completados / total) * 100) if total else 0
@@ -184,13 +248,39 @@ class TemaColaboradorSerializer(serializers.ModelSerializer):
         fields = ('id', 'modulo', 'titulo', 'duracion_estimada', 'tipo_nombre', 'orden')
 
 
+class ContenidoBloqueItemColaboradorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContenidoBloqueItem
+        fields = ('id', 'orden', 'titulo', 'texto', 'imagen_url', 'imagen_archivo', 'items')
+
+
+class ContenidoBloqueArchivoColaboradorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContenidoBloqueArchivo
+        fields = ('id', 'orden', 'file', 'original_name', 'mime_type', 'size_formatted', 'file_type', 'description')
+
+
+class ContenidoBloqueOpcionColaboradorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContenidoBloqueOpcion
+        fields = ('id', 'orden', 'texto')  # sin es_correcta
+
+
 class ContenidoBloqueColaboradorSerializer(serializers.ModelSerializer):
     tipo_nombre = serializers.CharField(source='tipo.nombre', read_only=True)
+    tipo_codigo = serializers.CharField(source='tipo.codigo', read_only=True)
     video_stream_url = serializers.SerializerMethodField()
+    bloque_items = ContenidoBloqueItemColaboradorSerializer(many=True, read_only=True)
+    archivos = ContenidoBloqueArchivoColaboradorSerializer(many=True, read_only=True)
+    opciones = ContenidoBloqueOpcionColaboradorSerializer(many=True, read_only=True)
 
     class Meta:
         model = ContenidoBloque
-        fields = ('id', 'tema', 'tipo_nombre', 'orden', 'texto', 'variante', 'items', 'filas', 'video_url', 'video_stream_url')
+        fields = (
+            'id', 'tema', 'tipo_nombre', 'tipo_codigo', 'orden', 'texto', 'variante',
+            'items', 'filas', 'video_url', 'video_stream_url',
+            'imagen_url', 'imagen_archivo', 'embed_url', 'bloque_items', 'archivos', 'opciones',
+        )
 
     def get_video_stream_url(self, obj):
         if not obj.video_archivo:
@@ -220,4 +310,4 @@ class EvaluacionColaboradorSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Evaluacion
-        fields = ('id', 'titulo', 'tipo_nombre', 'puntaje_minimo', 'curso', 'modulo')
+        fields = ('id', 'titulo', 'tipo_nombre', 'puntaje_minimo', 'intentos_maximos', 'curso', 'modulo')

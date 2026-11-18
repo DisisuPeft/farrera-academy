@@ -6,6 +6,9 @@ from .views import (
     ModuloViewSet,
     TemaViewSet,
     ContenidoBloqueViewSet,
+    ContenidoBloqueItemViewSet,
+    ContenidoBloqueArchivoViewSet,
+    ContenidoBloqueOpcionViewSet,
     EvaluacionViewSet,
     PreguntaViewSet,
     OpcionPreguntaViewSet,
@@ -18,6 +21,7 @@ from .views_colaborador import (
     MisInscripcionesViewSet,
     MisProgresosViewSet,
     MisResultadosViewSet,
+    MisRespuestasBloqueViewSet,
     CursoColaboradorViewSet,
     MisCursosViewSet,
     ModuloColaboradorViewSet,
@@ -33,6 +37,9 @@ admin_router.register(r'cursos', CursoViewSet, basename='curso')
 admin_router.register(r'modulos', ModuloViewSet, basename='modulo-curso')
 admin_router.register(r'temas', TemaViewSet, basename='tema')
 admin_router.register(r'bloques', ContenidoBloqueViewSet, basename='bloque')
+admin_router.register(r'bloque-items', ContenidoBloqueItemViewSet, basename='bloque-item')
+admin_router.register(r'bloque-archivos', ContenidoBloqueArchivoViewSet, basename='bloque-archivo')
+admin_router.register(r'bloque-opciones', ContenidoBloqueOpcionViewSet, basename='bloque-opcion')
 admin_router.register(r'evaluaciones', EvaluacionViewSet, basename='evaluacion')
 admin_router.register(r'preguntas', PreguntaViewSet, basename='pregunta')
 admin_router.register(r'opciones', OpcionPreguntaViewSet, basename='opcion')
@@ -45,6 +52,7 @@ mis_router = DefaultRouter()
 mis_router.register(r'mis-inscripciones', MisInscripcionesViewSet, basename='mis-inscripciones')
 mis_router.register(r'mis-progresos', MisProgresosViewSet, basename='mis-progresos')
 mis_router.register(r'mis-resultados', MisResultadosViewSet, basename='mis-resultados')
+mis_router.register(r'mis-respuestas-bloque', MisRespuestasBloqueViewSet, basename='mis-respuestas-bloque')
 mis_router.register(r'mis-cursos', MisCursosViewSet, basename='mis-cursos')
 
 # --- Colaborador: contenido de lectura (prefijo /ver/ para no colisionar con admin) ---

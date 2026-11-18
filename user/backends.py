@@ -20,10 +20,10 @@ class RolePermissionBackend(ModelBackend):
                 for p in Permission.objects.select_related('content_type')
             )
         
-        # 2. Usuario inactivo o no autenticado = sin permisos
-        if not user_obj.is_active or not user_obj.is_authenticated:
+        # 2. Usuario desactivado (status) o no autenticado = sin permisos
+        if user_obj.status == 0 or not user_obj.is_authenticated:
             return set()
-        
+
         # 3. Obtiene permisos desde roles
         permisos = set()
         for role in user_obj.roles.all():
@@ -50,10 +50,10 @@ class RolePermissionBackend(ModelBackend):
                 for p in Permission.objects.select_related('content_type')
             )
         
-        # 2. Usuario inactivo = sin permisos
-        if not user_obj.is_active or not user_obj.is_authenticated:
+        # 2. Usuario desactivado (status) = sin permisos
+        if user_obj.status == 0 or not user_obj.is_authenticated:
             return set()
-        
+
         # 3. Obtiene permisos desde roles
         return self.get_user_permissions(user_obj)
 
@@ -64,9 +64,9 @@ class RolePermissionBackend(ModelBackend):
         if user_obj.is_superuser:
             return True
         
-        # 2. Usuario inactivo = no tiene permisos
-        if not user_obj.is_active or not user_obj.is_authenticated:
+        # 2. Usuario desactivado (status) = no tiene permisos
+        if user_obj.status == 0 or not user_obj.is_authenticated:
             return False
-        
+
         # 3. Verifica en los permisos del usuario
         return perm in self.get_all_permissions(user_obj)

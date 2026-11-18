@@ -101,7 +101,7 @@ class UserSerializer(serializers.ModelSerializer):
         roles_list = validated_data.pop('roles', None)
         ins = super().update(instance, validated_data)
 
-        if password and len(password) > 6:
+        if password and len(password) >= 6:
             ins.set_password(password)
 
         if roles_list is not None:

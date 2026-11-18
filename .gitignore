@@ -22,3 +22,14 @@ school_admin/settings.py
 dist/
 build/
 *.egg-info/
+
+# rsc harness — todo el harness queda fuera del repo (decisión explícita del usuario,
+# 2026-11-18): tooling, wiki de conocimiento, instrucciones de agentes y configs locales.
+.rsc/
+.worktrees/
+01-TOOLS/
+02-DOCS/
+CLAUDE.md
+AGENTS.md
+.claude/
+.codex/

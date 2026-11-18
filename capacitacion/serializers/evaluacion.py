@@ -8,7 +8,7 @@ class EvaluacionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Evaluacion
         fields = (
-            'id', 'titulo', 'tipo', 'tipo_nombre', 'puntaje_minimo',
+            'id', 'titulo', 'tipo', 'tipo_nombre', 'puntaje_minimo', 'intentos_maximos',
             'curso', 'modulo',
             'activo', 'creado_at', 'actualizado_at',
         )

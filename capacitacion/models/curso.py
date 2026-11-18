@@ -1,5 +1,6 @@
+from django.conf import settings
 from django.db import models
-from common.models import BaseModel
+from common.models import BaseModel, BaseFileEntity
 
 
 class Curso(BaseModel):
@@ -12,6 +13,23 @@ class Curso(BaseModel):
         'catalogos.CatalogStatus',
         on_delete=models.PROTECT,
         related_name='cursos',
+    )
+    # Ámbito de autorización: nulo = curso "global" (compatibilidad con datos existentes,
+    # visible para cualquier Administrador). Con empresa asignada, solo lo administran
+    # los usuarios cuya `dependencia.empresa` coincide (ver CursoViewSet.get_queryset).
+    empresa = models.ForeignKey(
+        'sistema.Empresa',
+        on_delete=models.PROTECT,
+        related_name='cursos',
+        null=True,
+        blank=True,
+    )
+    creado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='cursos_creados',
+        null=True,
+        blank=True,
     )
 
     class Meta:
@@ -28,6 +46,37 @@ class Curso(BaseModel):
 
     def __str__(self):
         return self.titulo
+
+
+class Periodo(BaseModel):
+    class Estado(models.TextChoices):
+        ABIERTO = 'abierto', 'Abierto'
+        CERRADO = 'cerrado', 'Cerrado'
+
+    curso = models.ForeignKey(
+        'capacitacion.Curso',
+        on_delete=models.PROTECT,
+        related_name='periodos',
+    )
+    nombre = models.CharField(max_length=255)
+    fecha_inicio = models.DateField()
+    fecha_fin = models.DateField(null=True, blank=True)
+    estado = models.CharField(max_length=10, choices=Estado.choices, default=Estado.ABIERTO)
+
+    class Meta:
+        ordering = ['-fecha_inicio']
+        verbose_name = 'Periodo de impartición'
+        verbose_name_plural = 'Periodos de impartición'
+        default_permissions = ()
+        permissions = [
+            ('ver_periodo', 'Ver periodo'),
+            ('agregar_periodo', 'Agregar periodo'),
+            ('editar_periodo', 'Editar periodo'),
+            ('eliminar_periodo', 'Eliminar periodo'),
+        ]
+
+    def __str__(self):
+        return f'{self.curso} — {self.nombre}'
 
 
 class Modulo(BaseModel):
@@ -102,6 +151,13 @@ class ContenidoBloque(BaseModel):
         blank=True,
         null=True,
     )
+    imagen_url = models.CharField(max_length=500, blank=True)
+    imagen_archivo = models.ImageField(
+        upload_to='capacitacion/imagenes/bloques/',
+        blank=True,
+        null=True,
+    )
+    embed_url = models.CharField(max_length=500, blank=True)
 
     class Meta:
         ordering = ['tema', 'orden']
@@ -112,3 +168,123 @@ class ContenidoBloque(BaseModel):
 
     def __str__(self):
         return f'{self.tema} — bloque {self.orden} ({self.tipo})'
+
+
+class ContenidoBloqueItem(BaseModel):
+    """
+    Ítem individual dentro de un bloque de tipo 'texto-tarjetas', 'texto-paneles',
+    'texto-presentacion' o 'texto-presentacion-paneles' (una tarjeta, un panel o
+    una diapositiva). Es un registro propio — y no un elemento más de un JSONField —
+    porque cada uno necesita poder llevar su propia imagen subida.
+    """
+    bloque = models.ForeignKey(
+        ContenidoBloque,
+        on_delete=models.CASCADE,
+        related_name='bloque_items',
+    )
+    orden = models.PositiveSmallIntegerField(default=0)
+    titulo = models.CharField(max_length=255, blank=True)
+    texto = models.TextField(blank=True)
+    imagen_url = models.CharField(max_length=500, blank=True)
+    imagen_archivo = models.ImageField(
+        upload_to='capacitacion/imagenes/items/',
+        blank=True,
+        null=True,
+    )
+    # Datos libres propios del ítem (ej. la lista de ubicaciones de un panel de agencias)
+    items = models.JSONField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['bloque', 'orden']
+        verbose_name = 'Ítem de bloque'
+        verbose_name_plural = 'Ítems de bloque'
+        unique_together = [('bloque', 'orden')]
+        default_permissions = ()
+
+    def __str__(self):
+        return f'{self.bloque} — item {self.orden}'
+
+
+class ContenidoBloqueArchivo(BaseFileEntity):
+    """
+    Adjunto genérico de un bloque (audio, documento descargable, etc.).
+    Reutiliza BaseFileEntity (common/models.py) en vez de inventar un campo de
+    archivo distinto por tipo: ya trae mime_type, file_type, tamaño, checksum
+    y detección automática. Un bloque puede tener varios (ej. documento +
+    sus anexos), ordenados con el mismo patrón `orden` que el resto del árbol.
+    """
+    bloque = models.ForeignKey(
+        ContenidoBloque,
+        on_delete=models.CASCADE,
+        related_name='archivos',
+    )
+    orden = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ['bloque', 'orden']
+        verbose_name = 'Archivo de bloque'
+        verbose_name_plural = 'Archivos de bloque'
+        unique_together = [('bloque', 'orden')]
+        default_permissions = ()
+
+
+class ContenidoBloqueOpcion(BaseModel):
+    """
+    Opción de respuesta para bloques evaluativos ligeros embebidos directamente
+    en una lección (tipo 'opcion-multiple' o 'verdadero-falso' dentro de un
+    Tema), DISTINTOS del sistema formal de Evaluacion/Pregunta/OpcionPregunta
+    (evaluación de módulo/curso con puntaje mínimo). `es_correcta` es dato de
+    autoría y nunca se expone a un colaborador (ver serializers de colaborador).
+    """
+    bloque = models.ForeignKey(
+        ContenidoBloque,
+        on_delete=models.CASCADE,
+        related_name='opciones',
+    )
+    orden = models.PositiveSmallIntegerField(default=0)
+    texto = models.CharField(max_length=255)
+    es_correcta = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['bloque', 'orden']
+        verbose_name = 'Opción de bloque evaluativo'
+        verbose_name_plural = 'Opciones de bloque evaluativo'
+        unique_together = [('bloque', 'orden')]
+        default_permissions = ()
+
+    def __str__(self):
+        return f'{self.bloque} — opción {self.orden}'
+
+
+class ContenidoBloqueRespuesta(BaseModel):
+    """
+    Intento de un colaborador sobre un bloque evaluativo embebido. `es_correcta`
+    se calcula en el servidor al crear el registro (nunca se recibe del
+    cliente), igual que en ResultadoEvaluacion — mismo patrón, menor peso.
+    """
+    inscripcion = models.ForeignKey(
+        'capacitacion.Inscripcion',
+        on_delete=models.PROTECT,
+        related_name='respuestas_bloque',
+    )
+    bloque = models.ForeignKey(
+        ContenidoBloque,
+        on_delete=models.PROTECT,
+        related_name='respuestas',
+    )
+    opcion_seleccionada = models.ForeignKey(
+        ContenidoBloqueOpcion,
+        on_delete=models.PROTECT,
+        related_name='respuestas',
+    )
+    es_correcta = models.BooleanField()
+    respondido_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-respondido_at']
+        verbose_name = 'Respuesta de bloque evaluativo'
+        verbose_name_plural = 'Respuestas de bloque evaluativo'
+        default_permissions = ()
+
+    def __str__(self):
+        return f'{self.inscripcion.colaborador} → {self.bloque} ({"correcta" if self.es_correcta else "incorrecta"})'

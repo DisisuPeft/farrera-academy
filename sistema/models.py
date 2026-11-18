@@ -71,6 +71,12 @@ class Modulo(Base):
     class Meta:
         ordering = ['orden']
         default_permissions = ()
+        permissions = [
+            ('ver_modulo', 'Ver módulo'),
+            ('agregar_modulo', 'Agregar módulo'),
+            ('editar_modulo', 'Editar módulo'),
+            ('eliminar_modulo', 'Eliminar módulo'),
+        ]
 
 
 class Pestania(Base):
@@ -86,6 +92,12 @@ class Pestania(Base):
     class Meta:
         ordering = ['orden']
         default_permissions = ()
+        permissions = [
+            ('ver_pestania', 'Ver pestaña'),
+            ('agregar_pestania', 'Agregar pestaña'),
+            ('editar_pestania', 'Editar pestaña'),
+            ('eliminar_pestania', 'Eliminar pestaña'),
+        ]
 
 
 # ORGANIZACIÓN

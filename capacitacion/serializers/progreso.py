@@ -14,7 +14,7 @@ class InscripcionSerializer(serializers.ModelSerializer):
             'inscrito_at', 'completado_at',
             'activo', 'creado_at', 'actualizado_at',
         )
-        read_only_fields = ('inscrito_at', 'creado_at', 'actualizado_at')
+        read_only_fields = ('curso', 'inscrito_at', 'completado_at', 'creado_at', 'actualizado_at')
 
     def get_colaborador_nombre(self, obj):
         return obj.colaborador.get_full_name() or obj.colaborador.username
@@ -27,7 +27,7 @@ class ProgresoTemaSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProgresoTema
         fields = (
-            'id', 'colaborador', 'colaborador_nombre',
+            'id', 'inscripcion', 'colaborador_nombre',
             'tema', 'tema_titulo',
             'completado_at',
             'activo', 'creado_at', 'actualizado_at',
@@ -35,7 +35,8 @@ class ProgresoTemaSerializer(serializers.ModelSerializer):
         read_only_fields = ('completado_at', 'creado_at', 'actualizado_at')
 
     def get_colaborador_nombre(self, obj):
-        return obj.colaborador.get_full_name() or obj.colaborador.username
+        colaborador = obj.inscripcion.colaborador
+        return colaborador.get_full_name() or colaborador.username
 
 
 class ResultadoEvaluacionSerializer(serializers.ModelSerializer):
@@ -46,7 +47,7 @@ class ResultadoEvaluacionSerializer(serializers.ModelSerializer):
     class Meta:
         model = ResultadoEvaluacion
         fields = (
-            'id', 'colaborador', 'colaborador_nombre',
+            'id', 'inscripcion', 'colaborador_nombre',
             'evaluacion', 'evaluacion_titulo',
             'correctas', 'total', 'puntaje',
             'presentado_at',
@@ -55,7 +56,8 @@ class ResultadoEvaluacionSerializer(serializers.ModelSerializer):
         read_only_fields = ('presentado_at', 'creado_at', 'actualizado_at')
 
     def get_colaborador_nombre(self, obj):
-        return obj.colaborador.get_full_name() or obj.colaborador.username
+        colaborador = obj.inscripcion.colaborador
+        return colaborador.get_full_name() or colaborador.username
 
     def get_puntaje(self, obj):
         if not obj.total:

@@ -14,6 +14,16 @@ class Inscripcion(BaseModel):
         on_delete=models.PROTECT,
         related_name='inscripciones',
     )
+    # Columna real, coexiste con `periodo` (decisión de plan 2026-11-10: ver
+    # 02-DOCS/wiki/sdd/decisions.md). La invariante curso == periodo.curso NO
+    # está garantizada todavía a este nivel del build — la impone InscripcionService
+    # (T004), que es el único punto de escritura previsto para este campo. Hasta que
+    # T004 exista, nada impide crear una Inscripcion con curso/periodo divergentes.
+    periodo = models.ForeignKey(
+        'capacitacion.Periodo',
+        on_delete=models.PROTECT,
+        related_name='inscripciones',
+    )
     inscrito_at = models.DateTimeField(auto_now_add=True)
     completado_at = models.DateTimeField(null=True, blank=True)
 
@@ -21,7 +31,7 @@ class Inscripcion(BaseModel):
         ordering = ['-inscrito_at']
         verbose_name = 'Inscripción'
         verbose_name_plural = 'Inscripciones'
-        unique_together = [('colaborador', 'curso')]
+        unique_together = [('colaborador', 'periodo')]
         default_permissions = ()
         permissions = [
             ('ver_inscripcion', 'Ver inscripción'),
@@ -33,10 +43,10 @@ class Inscripcion(BaseModel):
 
 
 class ProgresoTema(BaseModel):
-    colaborador = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+    inscripcion = models.ForeignKey(
+        'capacitacion.Inscripcion',
         on_delete=models.PROTECT,
-        related_name='capacitacion_progresotema_set',
+        related_name='progresos_tema',
     )
     tema = models.ForeignKey(
         'capacitacion.Tema',
@@ -49,18 +59,18 @@ class ProgresoTema(BaseModel):
         ordering = ['-completado_at']
         verbose_name = 'Progreso de tema'
         verbose_name_plural = 'Progresos de tema'
-        unique_together = [('colaborador', 'tema')]
+        unique_together = [('inscripcion', 'tema')]
         default_permissions = ()
 
     def __str__(self):
-        return f'{self.colaborador} → {self.tema}'
+        return f'{self.inscripcion.colaborador} → {self.tema}'
 
 
 class ResultadoEvaluacion(BaseModel):
-    colaborador = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+    inscripcion = models.ForeignKey(
+        'capacitacion.Inscripcion',
         on_delete=models.PROTECT,
-        related_name='capacitacion_resultadoevaluacion_set',
+        related_name='resultados_evaluacion',
     )
     evaluacion = models.ForeignKey(
         'capacitacion.Evaluacion',
@@ -78,4 +88,4 @@ class ResultadoEvaluacion(BaseModel):
         default_permissions = ()
 
     def __str__(self):
-        return f'{self.colaborador} → {self.evaluacion} ({self.correctas}/{self.total})'
+        return f'{self.inscripcion.colaborador} → {self.evaluacion} ({self.correctas}/{self.total})'
