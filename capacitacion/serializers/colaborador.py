@@ -6,6 +6,7 @@ from capacitacion.models import (
     Evaluacion, Pregunta, OpcionPregunta,
 )
 from competencias.models import CompetenciaCurso
+from common.serializers import ArchivoProtegidoField, ImagenProtegidaField
 
 
 def _hay_intento_aprobado(resultados):
@@ -154,6 +155,8 @@ class CursoColaboradorSerializer(serializers.ModelSerializer):
     )
     inscrito = serializers.SerializerMethodField()
     progreso = serializers.SerializerMethodField()
+    imagen = ImagenProtegidaField(required=False, allow_null=True)
+    banner = ImagenProtegidaField(required=False, allow_null=True)
 
     class Meta:
         model = Curso
@@ -249,12 +252,16 @@ class TemaColaboradorSerializer(serializers.ModelSerializer):
 
 
 class ContenidoBloqueItemColaboradorSerializer(serializers.ModelSerializer):
+    imagen_archivo = ImagenProtegidaField(required=False, allow_null=True)
+
     class Meta:
         model = ContenidoBloqueItem
         fields = ('id', 'orden', 'titulo', 'texto', 'imagen_url', 'imagen_archivo', 'items')
 
 
 class ContenidoBloqueArchivoColaboradorSerializer(serializers.ModelSerializer):
+    file = ArchivoProtegidoField()
+
     class Meta:
         model = ContenidoBloqueArchivo
         fields = ('id', 'orden', 'file', 'original_name', 'mime_type', 'size_formatted', 'file_type', 'description')
@@ -273,6 +280,7 @@ class ContenidoBloqueColaboradorSerializer(serializers.ModelSerializer):
     bloque_items = ContenidoBloqueItemColaboradorSerializer(many=True, read_only=True)
     archivos = ContenidoBloqueArchivoColaboradorSerializer(many=True, read_only=True)
     opciones = ContenidoBloqueOpcionColaboradorSerializer(many=True, read_only=True)
+    imagen_archivo = ImagenProtegidaField(required=False, allow_null=True)
 
     class Meta:
         model = ContenidoBloque

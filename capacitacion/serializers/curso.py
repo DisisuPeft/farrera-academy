@@ -3,10 +3,13 @@ from capacitacion.models import (
     Curso, Modulo, Tema,
     ContenidoBloque, ContenidoBloqueItem, ContenidoBloqueArchivo, ContenidoBloqueOpcion,
 )
+from common.serializers import ArchivoProtegidoField, ImagenProtegidaField
 
 
 class CursoSerializer(serializers.ModelSerializer):
     status_nombre = serializers.CharField(source='status.nombre', read_only=True)
+    imagen = ImagenProtegidaField(required=False, allow_null=True)
+    banner = ImagenProtegidaField(required=False, allow_null=True)
 
     class Meta:
         model = Curso
@@ -44,6 +47,8 @@ class TemaSerializer(serializers.ModelSerializer):
 
 
 class ContenidoBloqueItemSerializer(serializers.ModelSerializer):
+    imagen_archivo = ImagenProtegidaField(required=False, allow_null=True)
+
     class Meta:
         model = ContenidoBloqueItem
         fields = (
@@ -55,6 +60,8 @@ class ContenidoBloqueItemSerializer(serializers.ModelSerializer):
 
 
 class ContenidoBloqueArchivoSerializer(serializers.ModelSerializer):
+    file = ArchivoProtegidoField()
+
     class Meta:
         model = ContenidoBloqueArchivo
         # Nota: ContenidoBloqueArchivo hereda de BaseFileEntity -> Base (created_at/status),
@@ -90,6 +97,8 @@ class ContenidoBloqueSerializer(serializers.ModelSerializer):
     bloque_items = ContenidoBloqueItemSerializer(many=True, read_only=True)
     archivos = ContenidoBloqueArchivoSerializer(many=True, read_only=True)
     opciones = ContenidoBloqueOpcionSerializer(many=True, read_only=True)
+    video_archivo = ArchivoProtegidoField(required=False, allow_null=True)
+    imagen_archivo = ImagenProtegidaField(required=False, allow_null=True)
 
     class Meta:
         model = ContenidoBloque

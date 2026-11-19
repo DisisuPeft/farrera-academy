@@ -19,7 +19,10 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 
+from common.views import MediaProtegidaView
+
 urlpatterns = [
+    path('api/media/<path:ruta>', MediaProtegidaView.as_view(), name='media-protegida'),
     path('api/', include('user.urls')),
     path('api/', include('catalogos.urls')),
     path('api/', include('sistema.urls')),
